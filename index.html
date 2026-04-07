@@ -1371,6 +1371,14 @@ async function _doSaveSettings() {
         await sb.from('income_tax_inputs').upsert({ person_id: personId, year: parseInt(year), data: inputData });
       }
     }
+    // categories — 전체 교체
+    await sb.from('categories').delete().neq('id', 0); // 전부 삭제
+    const catRows = [];
+    (DATA.categories.income || []).forEach((name, i) => catRows.push({ type: 'income', name, sort_order: i }));
+    (DATA.categories.expense || []).forEach((name, i) => catRows.push({ type: 'expense', name, sort_order: i }));
+    if (catRows.length > 0) {
+      await sb.from('categories').insert(catRows);
+    }
     // app settings
     await sb.from('app_settings').upsert([
       { key: 'currentPerson', value: DATA.currentPerson },
