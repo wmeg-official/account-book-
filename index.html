@@ -122,13 +122,13 @@ tbody tr:hover { background: #f8fafc; }
 
 /* Chart placeholder */
 .chart-container { background: var(--card); border-radius: 12px; border: 1px solid var(--border); padding: 20px; margin-bottom: 16px; }
-.bar-chart { display: flex; align-items: flex-end; gap: 8px; height: 200px; padding: 10px 0; }
-.bar-group { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; }
-.bar { width: 100%; max-width: 40px; border-radius: 4px 4px 0 0; transition: height 0.3s; min-height: 2px; }
-.bar.income-bar { background: var(--income); opacity: 0.7; }
-.bar.expense-bar { background: var(--expense); opacity: 0.7; }
+.bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 240px; padding: 10px 0; }
+.bar-group { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.bar { width: 16px; border-radius: 4px 4px 0 0; transition: height 0.3s; min-height: 2px; }
+.bar.income-bar { background: var(--income); opacity: 0.85; }
+.bar.expense-bar { background: var(--expense); opacity: 0.85; }
 .bar-label { font-size: 11px; color: var(--text-light); margin-top: 6px; }
-.bar-pair { display: flex; gap: 2px; align-items: flex-end; }
+.bar-pair { display: flex; gap: 3px; align-items: flex-end; height: 160px; }
 .chart-legend { display: flex; gap: 16px; justify-content: center; margin-top: 8px; font-size: 12px; }
 .legend-item { display: flex; align-items: center; gap: 4px; }
 .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
@@ -251,6 +251,7 @@ tbody tr:hover { background: #f8fafc; }
       </div>
       <div id="dashCards" class="cards"></div>
       <div id="dashChart" class="chart-container"></div>
+      <div id="dashPieCharts" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;"></div>
       <div id="dashRecent" class="table-wrap"></div>
     </div>
 
@@ -1564,29 +1565,36 @@ function renderDashboard() {
     <div class="card"><div class="card-label">거래 건수</div><div class="card-value primary">${txs.length}건</div><div class="card-sub">매출 ${txs.filter(t=>t.type==='income').length} / 비용 ${txs.filter(t=>t.type==='expense').length}</div></div>
   `;
 
-  // Monthly chart
+  // 월별 데이터 계산 (차트 + 파이에서 공용)
+  const yearTxs = bizTransactions().filter(t => t.type !== 'salary' && new Date(t.date).getFullYear() === year);
+  const monthlyData = [];
+  for (let m = 1; m <= 12; m++) {
+    const mtxs = yearTxs.filter(t => new Date(t.date).getMonth() + 1 === m);
+    monthlyData.push({
+      month: m,
+      income: mtxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
+      expense: mtxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+    });
+  }
+
+  // ── 월별 막대 그래프 (금액 표시) ──
   if (month === 'all') {
-    const monthlyData = [];
-    for (let m = 1; m <= 12; m++) {
-      const mtxs = bizTransactions().filter(t => {
-        const d = new Date(t.date);
-        return t.type !== 'salary' && d.getFullYear() === year && d.getMonth() + 1 === m;
-      });
-      monthlyData.push({
-        month: m,
-        income: mtxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
-        expense: mtxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
-      });
-    }
     const maxVal = Math.max(...monthlyData.map(d => Math.max(d.income, d.expense)), 1);
+    const fmtShort = (v) => v >= 100000000 ? (v/100000000).toFixed(1)+'억' : v >= 10000 ? Math.round(v/10000)+'만' : v > 0 ? v.toLocaleString() : '';
     document.getElementById('dashChart').innerHTML = `
       <h4 style="margin-bottom:12px;">월별 매출/비용</h4>
-      <div class="bar-chart">
+      <div class="bar-chart" style="height:240px;">
         ${monthlyData.map(d => `
           <div class="bar-group">
             <div class="bar-pair">
-              <div class="bar income-bar" style="height:${(d.income / maxVal) * 160}px" title="매출: ${fmtWon(d.income)}"></div>
-              <div class="bar expense-bar" style="height:${(d.expense / maxVal) * 160}px" title="비용: ${fmtWon(d.expense)}"></div>
+              <div style="display:flex;flex-direction:column;align-items:center;">
+                <span style="font-size:10px;color:var(--income);font-weight:600;margin-bottom:2px;white-space:nowrap;">${fmtShort(d.income)}</span>
+                <div class="bar income-bar" style="height:${(d.income / maxVal) * 160}px" title="매출: ${fmtWon(d.income)}"></div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;">
+                <span style="font-size:10px;color:var(--expense);font-weight:600;margin-bottom:2px;white-space:nowrap;">${fmtShort(d.expense)}</span>
+                <div class="bar expense-bar" style="height:${(d.expense / maxVal) * 160}px" title="비용: ${fmtWon(d.expense)}"></div>
+              </div>
             </div>
             <div class="bar-label">${d.month}월</div>
           </div>
@@ -1597,9 +1605,81 @@ function renderDashboard() {
         <div class="legend-item"><div class="legend-dot" style="background:var(--expense)"></div> 비용</div>
       </div>
     `;
+    document.getElementById('dashChart').style.display = '';
   } else {
-    document.getElementById('dashChart').innerHTML = '';
+    document.getElementById('dashChart').style.display = 'none';
   }
+
+  // ── 카테고리별 원형 그래프 ──
+  const pieColors = ['#2563eb','#16a34a','#f59e0b','#dc2626','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#6366f1','#14b8a6','#e11d4d','#a855f7','#0ea5e9','#eab308'];
+
+  function buildPieChart(title, data, total) {
+    if (total === 0) return `<div class="chart-container"><h4 style="margin-bottom:12px;">${title}</h4><p style="color:var(--text-light);font-size:13px;">데이터 없음</p></div>`;
+    const sorted = data.sort((a, b) => b.amount - a.amount);
+    let cumulativePct = 0;
+    const gradientParts = [];
+    sorted.forEach((item, i) => {
+      const pct = (item.amount / total) * 100;
+      const color = pieColors[i % pieColors.length];
+      item.color = color;
+      gradientParts.push(`${color} ${cumulativePct}% ${cumulativePct + pct}%`);
+      cumulativePct += pct;
+    });
+    const gradient = `conic-gradient(${gradientParts.join(', ')})`;
+
+    return `<div class="chart-container">
+      <h4 style="margin-bottom:12px;">${title}</h4>
+      <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
+        <div style="width:160px;height:160px;border-radius:50%;background:${gradient};flex-shrink:0;"></div>
+        <div style="flex:1;min-width:150px;">
+          ${sorted.slice(0, 10).map((item, i) => {
+            const pct = ((item.amount / total) * 100).toFixed(1);
+            return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px;">
+              <div style="width:10px;height:10px;border-radius:2px;background:${item.color};flex-shrink:0;"></div>
+              <span style="flex:1;color:var(--text-light);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name}</span>
+              <span style="font-weight:600;white-space:nowrap;">${fmtWon(item.amount)}</span>
+              <span style="color:var(--text-light);width:40px;text-align:right;">${pct}%</span>
+            </div>`;
+          }).join('')}
+          ${sorted.length > 10 ? `<div style="font-size:11px;color:var(--text-light);padding-top:4px;">외 ${sorted.length - 10}개 항목</div>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // 매출 카테고리별
+  const incomeByCat = {};
+  txs.filter(t => t.type === 'income').forEach(t => {
+    const cat = t.category || '미분류';
+    incomeByCat[cat] = (incomeByCat[cat] || 0) + t.amount;
+  });
+  const incomeData = Object.entries(incomeByCat).map(([name, amount]) => ({ name, amount }));
+
+  // 비용 카테고리별
+  const expenseByCat = {};
+  txs.filter(t => t.type === 'expense').forEach(t => {
+    const cat = t.category || '미분류';
+    expenseByCat[cat] = (expenseByCat[cat] || 0) + t.amount;
+  });
+  const expenseData = Object.entries(expenseByCat).map(([name, amount]) => ({ name, amount }));
+
+  // 월별 매출 카테고리 파이 (월 선택 시에만 표시하되, "전체"면 월 선택 드롭다운 포함)
+  let monthPieHtml = '';
+  if (month !== 'all') {
+    // 선택된 월의 매출 카테고리
+    const monthIncomeByCat = {};
+    txs.filter(t => t.type === 'income').forEach(t => {
+      const cat = t.category || '미분류';
+      monthIncomeByCat[cat] = (monthIncomeByCat[cat] || 0) + t.amount;
+    });
+    const monthIncomeData = Object.entries(monthIncomeByCat).map(([name, amount]) => ({ name, amount }));
+    const monthIncomeTotal = monthIncomeData.reduce((s, d) => s + d.amount, 0);
+    monthPieHtml = buildPieChart(`${month}월 매출 카테고리`, monthIncomeData, monthIncomeTotal);
+  }
+
+  document.getElementById('dashPieCharts').innerHTML =
+    buildPieChart(`${month === 'all' ? year + '년' : month + '월'} 매출 카테고리`, incomeData, totalIncome) +
+    buildPieChart(`${month === 'all' ? year + '년' : month + '월'} 비용 카테고리`, expenseData, totalExpense);
 
   // Recent transactions
   const recent = txs.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10);
