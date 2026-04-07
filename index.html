@@ -1176,7 +1176,7 @@ async function loadDataFromServer() {
       myBizIds.length > 0 ? sb.from('proxy_orders').select('*').in('biz_id', myBizIds) : Promise.resolve({ data: [] }),
       myBizIds.length > 0 ? sb.from('cards').select('*').in('biz_id', myBizIds) : Promise.resolve({ data: [] }),
       myBizIds.length > 0 ? sb.from('banks').select('*').in('biz_id', myBizIds) : Promise.resolve({ data: [] }),
-      sb.from('categories').select('*').order('sort_order'),
+      sb.from('categories').select('*').in('biz_id', ['_global', myPersonId || '_none']).order('sort_order'),
       myPersonId ? sb.from('yearend_inputs').select('*').eq('person_id', myPersonId) : Promise.resolve({ data: [] }),
       myPersonId ? sb.from('income_tax_inputs').select('*').eq('person_id', myPersonId) : Promise.resolve({ data: [] }),
       sb.from('app_settings').select('*')
@@ -1234,11 +1234,15 @@ async function loadDataFromServer() {
       banks[b.biz_id].push(b.name);
     });
 
-    // categories (공용)
-    const categories = { income: [], expense: [] };
+    // categories (사용자별 분리 — 개인 카테고리 있으면 그것 사용, 없으면 _global 기본값)
+    const globalCats = { income: [], expense: [] };
+    const myCats = { income: [], expense: [] };
     (catsRes.data || []).forEach(c => {
-      if (categories[c.type]) categories[c.type].push(c.name);
+      if (c.biz_id === myPersonId && myCats[c.type]) myCats[c.type].push(c.name);
+      else if (c.biz_id === '_global' && globalCats[c.type]) globalCats[c.type].push(c.name);
     });
+    const hasOwnCats = myCats.income.length > 0 || myCats.expense.length > 0;
+    const categories = hasOwnCats ? myCats : globalCats;
 
     // yearend inputs
     const yearendInputs = {};
@@ -1305,6 +1309,8 @@ async function saveSettings() {
 }
 
 async function _doSaveSettings() {
+  // 기본 데이터(로드 실패)일 때 DB 덮어쓰기 방지
+  if (DATA._isDefault) { console.warn('기본 데이터 상태 — DB 저장 건너뜀'); return; }
   try {
     // persons
     for (const p of DATA.persons) {
@@ -1362,22 +1368,31 @@ async function _doSaveSettings() {
     // yearend inputs
     for (const [personId, yearData] of Object.entries(DATA.yearendInputs || {})) {
       for (const [year, inputData] of Object.entries(yearData)) {
-        await sb.from('yearend_inputs').upsert({ person_id: personId, year: parseInt(year), data: inputData });
+        await sb.from('yearend_inputs').upsert(
+          { person_id: personId, year: parseInt(year), data: inputData },
+          { onConflict: 'person_id,year' }
+        );
       }
     }
     // income tax inputs
     for (const [personId, yearData] of Object.entries(DATA.incomeTaxInputs || {})) {
       for (const [year, inputData] of Object.entries(yearData)) {
-        await sb.from('income_tax_inputs').upsert({ person_id: personId, year: parseInt(year), data: inputData });
+        await sb.from('income_tax_inputs').upsert(
+          { person_id: personId, year: parseInt(year), data: inputData },
+          { onConflict: 'person_id,year' }
+        );
       }
     }
-    // categories — 전체 교체
-    await sb.from('categories').delete().neq('id', 0); // 전부 삭제
-    const catRows = [];
-    (DATA.categories.income || []).forEach((name, i) => catRows.push({ type: 'income', name, sort_order: i }));
-    (DATA.categories.expense || []).forEach((name, i) => catRows.push({ type: 'expense', name, sort_order: i }));
-    if (catRows.length > 0) {
-      await sb.from('categories').insert(catRows);
+    // categories — 해당 사용자 카테고리만 교체 (_global은 건드리지 않음)
+    const myPid = currentPersonId();
+    if (myPid) {
+      await sb.from('categories').delete().eq('biz_id', myPid);
+      const catRows = [];
+      (DATA.categories.income || []).forEach((name, i) => catRows.push({ biz_id: myPid, type: 'income', name, sort_order: i }));
+      (DATA.categories.expense || []).forEach((name, i) => catRows.push({ biz_id: myPid, type: 'expense', name, sort_order: i }));
+      if (catRows.length > 0) {
+        await sb.from('categories').insert(catRows);
+      }
     }
     // app settings
     await sb.from('app_settings').upsert([
@@ -1499,8 +1514,10 @@ async function onLoginSuccess() {
 
   try {
     DATA = await loadDataFromServer();
-  } catch {
+  } catch (e) {
+    console.error('데이터 로드 실패:', e);
     DATA = getDefaultData();
+    DATA._isDefault = true; // 기본 데이터 표시 — DB 덮어쓰기 방지용
   }
 
   // auth_id로 현재 사람 매칭 (없으면 자동 생성)
@@ -1939,6 +1956,7 @@ function openTxModal(editId) {
       document.getElementById('txSalaryEmployment').value = t.salaryEmployment || '';
       calcSalaryNet();
     } else {
+      document.getElementById('txTotal').value = '';
       document.getElementById('txAmount').value = t.amount;
       document.getElementById('txVat').value = t.vat || '';
       document.getElementById('txTaxType').value = t.taxType || 'taxable';
@@ -5192,13 +5210,20 @@ function resetStatement() {
     document.getElementById('loginError').textContent = 'DB 연결 설정을 불러올 수 없습니다.';
     return;
   }
-  // 기존 세션 확인
-  const { data: { session } } = await sb.auth.getSession();
-  if (session && session.user) {
-    currentAuthUser = session.user;
+  // 기존 세션 확인 — 유효하지 않으면 로그인 화면으로
+  try {
+    const { data: { session }, error } = await sb.auth.getSession();
+    if (error || !session || !session.user) throw new Error('no session');
+    // 세션 갱신 시도 (만료된 refresh token 검증)
+    const { data: refreshed, error: refreshErr } = await sb.auth.refreshSession();
+    if (refreshErr || !refreshed.session) throw new Error('session expired');
+    currentAuthUser = refreshed.session.user;
     await onLoginSuccess();
+  } catch {
+    // 세션 무효 — 로그인 화면 유지, 잔여 세션 정리
+    await sb.auth.signOut().catch(() => {});
+    currentAuthUser = null;
   }
-  // 세션 없으면 로그인 화면 유지
 })();
 </script>
 </body>
