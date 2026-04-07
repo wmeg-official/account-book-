@@ -141,6 +141,28 @@ tbody tr:hover { background: #f8fafc; }
 /* Data management */
 .data-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
 
+/* 거래명세서 인쇄 스타일 */
+@media print {
+  body * { visibility: hidden !important; }
+  #stmtPrintArea, #stmtPrintArea * { visibility: visible !important; }
+  #stmtPrintArea { position: absolute; left: 0; top: 0; width: 100%; padding: 20px !important; }
+  @page { size: A4; margin: 15mm; }
+}
+.stmt { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; color: #000; }
+.stmt table { border-collapse: collapse; width: 100%; }
+.stmt .stmt-title { text-align: center; font-size: 22px; font-weight: 700; letter-spacing: 8px; padding: 16px 0; border-top: 3px solid #000; border-bottom: 3px solid #000; margin-bottom: 16px; }
+.stmt .stmt-header { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.stmt .stmt-party { border: 1px solid #333; }
+.stmt .stmt-party th { background: #f0f0f0; padding: 6px 10px; font-size: 12px; border: 1px solid #999; white-space: nowrap; width: 70px; text-align: center; }
+.stmt .stmt-party td { padding: 6px 10px; font-size: 13px; border: 1px solid #999; }
+.stmt .stmt-party .party-label { background: #e8e8e8; text-align: center; font-weight: 700; font-size: 13px; padding: 6px; border: 1px solid #999; }
+.stmt .stmt-items th { background: #f0f0f0; padding: 8px 6px; font-size: 12px; border: 1px solid #999; text-align: center; }
+.stmt .stmt-items td { padding: 6px; font-size: 13px; border: 1px solid #999; text-align: right; }
+.stmt .stmt-items td.left { text-align: left; }
+.stmt .stmt-items td.center { text-align: center; }
+.stmt .stmt-total { font-weight: 700; background: #f9f9f9; }
+.stmt .stmt-footer { margin-top: 16px; font-size: 12px; color: #666; }
+
 /* Login */
 .login-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #1e293b; z-index: 9999; display: flex; justify-content: center; align-items: center; }
 .login-overlay.hidden { display: none; }
@@ -196,12 +218,14 @@ tbody tr:hover { background: #f8fafc; }
       <a onclick="showPage('proxy')" data-page="proxy"><span class="icon">🛒</span> 구매대행</a>
       <a onclick="showPage('reports')" data-page="reports"><span class="icon">📈</span> 손익 리포트</a>
       <a onclick="showPage('vat')" data-page="vat"><span class="icon">🧾</span> 부가세</a>
-      <a onclick="showPage('income-tax')" data-page="income-tax"><span class="icon">💰</span> 소득세</a>
       <a onclick="showPage('yearend')" data-page="yearend"><span class="icon">🧮</span> 연말정산</a>
+      <a onclick="showPage('other-income')" data-page="other-income"><span class="icon">📋</span> 기타소득</a>
+      <a onclick="showPage('income-tax')" data-page="income-tax"><span class="icon">💰</span> 소득세</a>
       <a onclick="showPage('assets')" data-page="assets"><span class="icon">🏗️</span> 자산 관리</a>
       <a onclick="showPage('categories')" data-page="categories"><span class="icon">🏷️</span> 카테고리 관리</a>
       <a onclick="showPage('businesses')" data-page="businesses"><span class="icon">🏢</span> 사람/사업자 관리</a>
       <a onclick="showPage('settings')" data-page="settings"><span class="icon">⚙️</span> 설정 / 백업</a>
+      <a onclick="showPage('statement')" data-page="statement"><span class="icon">📄</span> 거래명세서</a>
     </nav>
   </aside>
 
@@ -318,6 +342,26 @@ tbody tr:hover { background: #f8fafc; }
       <div id="vatReport"></div>
     </div>
 
+    <!-- 기타소득 -->
+    <div id="page-other-income" class="page">
+      <h2 class="page-title">기타소득</h2>
+      <div class="filter-bar">
+        <div class="form-group">
+          <label>연도</label>
+          <select id="otherIncomeYear" onchange="renderOtherIncome()"></select>
+        </div>
+      </div>
+      <div class="card">
+        <h4 style="margin-bottom:12px;">월별 기타소득 입력 (강의료, 원고료, 자문료 등)</h4>
+        <div id="otherIncomeTable"></div>
+        <p style="font-size:12px;color:var(--text-light);margin-top:12px;">
+          ※ 8.8% 원천징수 전 총액(세전)을 입력하세요. 원천징수세액은 자동 계산됩니다.<br>
+          ※ 기타소득금액(세전 - 필요경비60%) 연 300만원 이하 시 분리과세(8.8%) 선택 가능<br>
+          ※ 입력한 데이터는 소득세 탭에 자동 반영됩니다.
+        </p>
+      </div>
+    </div>
+
     <!-- 소득세 -->
     <div id="page-income-tax" class="page">
       <h2 class="page-title">종합소득세 추정</h2>
@@ -353,6 +397,7 @@ tbody tr:hover { background: #f8fafc; }
         </div>
         <p style="font-size:12px;color:var(--text-light);margin-top:8px;">※ 근로소득·원천징수·4대보험은 거래 내역의 급여 데이터를 자동 합산합니다.<br>※ 이월결손금: 직전 15년 이내 장부 기장 연도의 확정 손실액을 입력하세요.</p>
       </div>
+
       <div id="taxReport"></div>
     </div>
 
@@ -539,7 +584,89 @@ tbody tr:hover { background: #f8fafc; }
         </div>
       </div>
     </div>
+
+    <!-- 거래명세서 -->
+    <div id="page-statement" class="page">
+      <h2 class="page-title">거래명세서</h2>
+
+      <div class="card" style="margin-bottom:20px;">
+        <h4 style="margin-bottom:12px;">거래명세서 작성</h4>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>작성일자 *</label>
+            <input type="date" id="stmtDate">
+          </div>
+          <div class="form-group">
+            <label>거래명세서 번호</label>
+            <input type="text" id="stmtNo" placeholder="예: 2026-001">
+          </div>
+        </div>
+
+        <h5 style="margin:16px 0 8px; color:var(--text-light);">공급받는자 (거래처)</h5>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>상호 *</label>
+            <input type="text" id="stmtBuyerName" placeholder="거래처 상호명">
+          </div>
+          <div class="form-group">
+            <label>사업자번호</label>
+            <input type="text" id="stmtBuyerRegNo" placeholder="000-00-00000">
+          </div>
+          <div class="form-group">
+            <label>대표자</label>
+            <input type="text" id="stmtBuyerOwner" placeholder="대표자명">
+          </div>
+          <div class="form-group">
+            <label>주소</label>
+            <input type="text" id="stmtBuyerAddr" placeholder="사업장 주소">
+          </div>
+        </div>
+
+        <h5 style="margin:16px 0 8px; color:var(--text-light);">품목</h5>
+        <div id="stmtItemsWrap">
+          <table id="stmtItemsTable" style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px;">
+            <thead>
+              <tr style="background:#f8fafc;">
+                <th style="padding:8px;text-align:left;border-bottom:1px solid var(--border);">품명</th>
+                <th style="padding:8px;text-align:left;border-bottom:1px solid var(--border);">규격</th>
+                <th style="padding:8px;text-align:right;border-bottom:1px solid var(--border);">수량</th>
+                <th style="padding:8px;text-align:right;border-bottom:1px solid var(--border);">단가</th>
+                <th style="padding:8px;text-align:right;border-bottom:1px solid var(--border);">공급가액</th>
+                <th style="padding:8px;text-align:right;border-bottom:1px solid var(--border);">세액</th>
+                <th style="padding:8px;border-bottom:1px solid var(--border);width:40px;"></th>
+              </tr>
+            </thead>
+            <tbody id="stmtItemsBody"></tbody>
+          </table>
+          <button class="btn btn-outline btn-sm" onclick="addStmtItem()">+ 품목 추가</button>
+        </div>
+
+        <div class="form-group" style="margin-top:16px;">
+          <label>비고</label>
+          <textarea id="stmtMemo" rows="2" placeholder="비고사항 (선택)"></textarea>
+        </div>
+
+        <div class="data-actions" style="margin-top:20px;">
+          <button class="btn btn-primary" onclick="previewStatement()">미리보기</button>
+          <button class="btn btn-outline" onclick="resetStatement()">초기화</button>
+        </div>
+      </div>
+    </div>
   </main>
+</div>
+
+<!-- 거래명세서 미리보기/인쇄 모달 -->
+<div id="stmtModal" class="modal-overlay" style="z-index:200;">
+  <div class="modal" style="max-width:800px;padding:0;background:#fff;">
+    <div style="padding:16px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;">거래명세서 미리보기</h3>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="printStatement()">🖨️ 인쇄 / PDF</button>
+        <button class="btn btn-outline" onclick="closeStmtModal()">닫기</button>
+      </div>
+    </div>
+    <div id="stmtPrintArea" style="padding:32px;"></div>
+  </div>
 </div>
 
 <!-- 거래 추가/수정 모달 -->
@@ -1318,6 +1445,8 @@ function renderPage(page) {
     case 'proxy': renderProxy(); break;
     case 'assets': renderAssets(); break;
     case 'yearend': renderYearend(); break;
+    case 'other-income': renderOtherIncome(); break;
+    case 'statement': renderStatement(); break;
     case 'settings': renderCards(); renderBanks(); break;
   }
 }
@@ -2123,7 +2252,9 @@ function saveIncomeTaxInputs() {
   const pid = currentPersonId();
   if (!DATA.incomeTaxInputs) DATA.incomeTaxInputs = {};
   if (!DATA.incomeTaxInputs[pid]) DATA.incomeTaxInputs[pid] = {};
+  const existing = DATA.incomeTaxInputs[pid][year] || {};
   DATA.incomeTaxInputs[pid][year] = {
+    ...existing,
     method: document.getElementById('taxMethod').value,
     expenseRate: parseInt(document.getElementById('expenseRate').value) || 60,
     dependents: parseInt(document.getElementById('taxDependents').value) || 0,
@@ -2142,6 +2273,89 @@ function restoreIncomeTaxInputs(year) {
     document.getElementById('taxDependents').value = saved.dependents || 0;
     document.getElementById('taxCarryoverLoss').value = saved.carryoverLoss || 0;
   }
+  // 기타소득은 별도 탭에서 관리
+}
+
+function renderOtherIncome() {
+  populateYearSelect('otherIncomeYear');
+  const year = document.getElementById('otherIncomeYear').value;
+  const saved = ((DATA.incomeTaxInputs || {})[currentPersonId()] || {})[year] || {};
+  renderOtherIncomeTable(year, saved.otherIncome || {});
+}
+
+function renderOtherIncomeTable(year, otherIncome) {
+  const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  let total = 0;
+  let html = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <thead><tr>
+      <th style="padding:8px;text-align:left;border-bottom:1px solid var(--border);width:60px;">월</th>
+      <th style="padding:8px;text-align:right;border-bottom:1px solid var(--border);">세전 금액</th>
+      <th style="padding:8px;text-align:right;border-bottom:1px solid var(--border);width:100px;">원천징수(8.8%)</th>
+      <th style="padding:8px;text-align:right;border-bottom:1px solid var(--border);width:100px;">실수령액</th>
+    </tr></thead><tbody>`;
+  for (let m = 1; m <= 12; m++) {
+    const val = otherIncome[m] || 0;
+    total += val;
+    const withheld = Math.round(val * 0.088);
+    const net = val - withheld;
+    html += `<tr>
+      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;">${months[m-1]}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;text-align:right;">
+        <input type="number" id="otherIncome_${m}" value="${val || ''}" min="0" placeholder="0"
+          style="width:130px;padding:5px 8px;border:1px solid #ddd;border-radius:4px;text-align:right;font-size:13px;"
+          oninput="onOtherIncomeChange()">
+      </td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;text-align:right;color:var(--text-light);" id="otherWithheld_${m}">${val ? fmtWon(withheld) : '-'}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;text-align:right;" id="otherNet_${m}">${val ? fmtWon(net) : '-'}</td>
+    </tr>`;
+  }
+  const totalWithheld = Math.round(total * 0.088);
+  html += `<tr style="font-weight:700;border-top:2px solid var(--text);">
+    <td style="padding:8px;">합계</td>
+    <td style="padding:8px;text-align:right;" id="otherTotalGross">${fmtWon(total)}</td>
+    <td style="padding:8px;text-align:right;color:var(--text-light);" id="otherTotalWithheld">${fmtWon(totalWithheld)}</td>
+    <td style="padding:8px;text-align:right;" id="otherTotalNet">${fmtWon(total - totalWithheld)}</td>
+  </tr>`;
+  html += '</tbody></table>';
+  document.getElementById('otherIncomeTable').innerHTML = html;
+}
+
+let _otherIncomeTimer = null;
+function onOtherIncomeChange() {
+  // 각 행의 원천징수/실수령 즉시 업데이트
+  let total = 0;
+  for (let m = 1; m <= 12; m++) {
+    const val = parseInt(document.getElementById('otherIncome_' + m).value) || 0;
+    total += val;
+    const withheld = Math.round(val * 0.088);
+    document.getElementById('otherWithheld_' + m).textContent = val ? fmtWon(withheld) : '-';
+    document.getElementById('otherNet_' + m).textContent = val ? fmtWon(val - withheld) : '-';
+  }
+  const totalWithheld = Math.round(total * 0.088);
+  document.getElementById('otherTotalGross').textContent = fmtWon(total);
+  document.getElementById('otherTotalWithheld').textContent = fmtWon(totalWithheld);
+  document.getElementById('otherTotalNet').textContent = fmtWon(total - totalWithheld);
+  // debounce 저장
+  if (_otherIncomeTimer) clearTimeout(_otherIncomeTimer);
+  _otherIncomeTimer = setTimeout(() => saveOtherIncomeData(), 800);
+}
+
+function saveOtherIncomeData() {
+  const year = document.getElementById('otherIncomeYear').value;
+  const pid = currentPersonId();
+  if (!DATA.incomeTaxInputs) DATA.incomeTaxInputs = {};
+  if (!DATA.incomeTaxInputs[pid]) DATA.incomeTaxInputs[pid] = {};
+  const existing = DATA.incomeTaxInputs[pid][year] || {};
+  const otherIncome = {};
+  for (let m = 1; m <= 12; m++) {
+    const el = document.getElementById('otherIncome_' + m);
+    if (el) {
+      const val = parseInt(el.value) || 0;
+      if (val > 0) otherIncome[m] = val;
+    }
+  }
+  DATA.incomeTaxInputs[pid][year] = { ...existing, otherIncome };
+  saveData();
 }
 
 // 연말정산 데이터에서 근로소득 공제 계산
@@ -2285,11 +2499,24 @@ function renderIncomeTax() {
   const salaryIncome = Math.max(0, salary - salaryDeduction);
   const hasSalary = salary > 0;
 
+  // ── 기타소득 (월별 입력 합산) ──
+  const taxInputs = ((DATA.incomeTaxInputs || {})[currentPersonId()] || {})[year] || {};
+  const otherIncomeData = taxInputs.otherIncome || {};
+  const otherGross = Object.values(otherIncomeData).reduce((s, v) => s + (v || 0), 0);
+  const otherExpense = Math.round(otherGross * 0.6); // 기타소득 필요경비 60%
+  const otherIncomeAmount = otherGross - otherExpense; // 기타소득금액
+  const otherWithheld = Math.round(otherGross * 0.088); // 원천징수세액 (소득세8% + 지방세0.8%)
+  const otherWithheldTax = Math.round(otherGross * 0.08); // 소득세분
+  const otherWithheldLocal = otherWithheld - otherWithheldTax; // 지방세분
+  const hasOther = otherGross > 0;
+  // 분리과세 vs 종합과세 비교용
+  const otherSeparateTax = otherWithheld; // 분리과세 시 이미 낸 세금으로 종결
+
   // ── 연말정산 공제 데이터 반영 ──
   const yeDeductions = calcYearendDeductions(year, salary);
 
-  // ── 종합소득금액 (사업 적자 시 근로소득에서 차감) ──
-  const totalIncome = Math.max(0, bizIncome + salaryIncome);
+  // ── 종합소득금액 (사업 적자 시 근로소득에서 차감, 기타소득 합산) ──
+  const totalIncome = Math.max(0, bizIncome + salaryIncome + otherIncomeAmount);
 
   // ── 소득공제 ──
   const dependents = parseInt(document.getElementById('taxDependents').value) || 0;
@@ -2326,20 +2553,24 @@ function renderIncomeTax() {
   const determinedTax = Math.max(0, computedTax - totalTaxCredits);
   const localTax = Math.round(determinedTax * 0.1);
 
-  // ── 기납부세액 차감 (연말정산 결정세액 = 기납부세액) ──
-  const paidIncomeTax = yeDeductions.yeDeterminedTax;
-  const paidLocalTax = yeDeductions.yeDeterminedLocal;
+  // ── 기납부세액 차감 (연말정산 + 기타소득 원천징수) ──
+  const paidIncomeTax = yeDeductions.yeDeterminedTax + otherWithheldTax;
+  const paidLocalTax = yeDeductions.yeDeterminedLocal + otherWithheldLocal;
   const totalWithheld = paidIncomeTax + paidLocalTax;
   const finalTax = determinedTax - paidIncomeTax;
   const finalLocal = localTax - paidLocalTax;
   const totalFinal = finalTax + finalLocal;
+
+  // 섹션 번호
+  let _sn = 1;
+  const sn = () => { const nums = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨']; return nums[_sn++ - 1] || _sn; };
 
   document.getElementById('taxReport').innerHTML = `
     <div class="cards" style="margin-bottom:16px;">
       <div class="card">
         <div class="card-label">종합소득금액</div>
         <div class="card-value primary">${fmtWon(totalIncome)}</div>
-        <div class="card-sub">사업 ${bizIncome < 0 ? '-' + fmtWon(Math.abs(bizIncome)) : fmtWon(bizIncome)}${hasSalary ? ` + 근로 ${fmtWon(salaryIncome)}` : ''}</div>
+        <div class="card-sub">사업 ${bizIncome < 0 ? '-' + fmtWon(Math.abs(bizIncome)) : fmtWon(bizIncome)}${hasSalary ? ` + 근로 ${fmtWon(salaryIncome)}` : ''}${hasOther ? ` + 기타 ${fmtWon(otherIncomeAmount)}` : ''}</div>
       </div>
       <div class="card">
         <div class="card-label">결정세액 (소득세+지방세)</div>
@@ -2349,12 +2580,12 @@ function renderIncomeTax() {
       <div class="card">
         <div class="card-label">${totalFinal >= 0 ? '추가 납부할 세액' : '환급받을 세액'}</div>
         <div class="card-value ${totalFinal >= 0 ? 'expense' : 'income'}">${fmtWon(Math.abs(totalFinal))}</div>
-        <div class="card-sub">${totalWithheld > 0 ? `연말정산 결정세액 ${fmtWon(totalWithheld)} 차감` : '기납부세액 없음'}</div>
+        <div class="card-sub">${totalWithheld > 0 ? `기납부세액 ${fmtWon(totalWithheld)} 차감` : '기납부세액 없음'}</div>
       </div>
     </div>
 
     <div class="report-section">
-      <h4>① 사업소득금액</h4>
+      <h4>${sn()} 사업소득금액</h4>
       <div class="report-row"><span class="label">총 수입금액</span><span>${fmtWon(totalRevenue)}</span></div>
       <div class="report-row"><span class="label">(-) 필요경비${method !== 'actual' ? ` (${document.getElementById('expenseRate').value}%)` : ''}</span><span>${fmtWon(deductibleExpense)}</span></div>
       ${method === 'actual' && autoDepreciation > 0 ? `<div class="report-row" style="font-size:12px;color:#888;"><span class="label" style="padding-left:16px;">거래내역 비용 ${fmtWon(totalExpenseActual)} + 감가상각비 ${fmtWon(autoDepreciation)}</span><span></span></div>` : ''}
@@ -2364,23 +2595,30 @@ function renderIncomeTax() {
 
     ${hasSalary ? `
     <div class="report-section">
-      <h4>② 근로소득금액</h4>
+      <h4>${sn()} 근로소득금액</h4>
       <div class="report-row"><span class="label">총급여 (${salaryTxs.length}건)</span><span>${fmtWon(salary)}</span></div>
       <div class="report-row"><span class="label">(-) 근로소득공제</span><span>${fmtWon(salaryDeduction)}</span></div>
       <div class="report-row total"><span class="label">근로소득금액</span><span>${fmtWon(salaryIncome)}</span></div>
     </div>
+    ` : ''}
 
+    ${hasOther ? `
+    <div class="report-section">
+      <h4>${sn()} 기타소득금액</h4>
+      <div class="report-row"><span class="label">기타소득 총액</span><span>${fmtWon(otherGross)}</span></div>
+      <div class="report-row"><span class="label">(-) 필요경비 (60%)</span><span>${fmtWon(otherExpense)}</span></div>
+      <div class="report-row total"><span class="label">기타소득금액</span><span>${fmtWon(otherIncomeAmount)}</span></div>
+      <div class="report-row" style="margin-top:4px;font-size:12px;color:var(--text-light);"><span class="label">원천징수세액 (8.8%)</span><span>${fmtWon(otherWithheld)}</span></div>
+      ${otherIncomeAmount <= 3000000 ? `<div style="font-size:12px;color:#f59e0b;margin-top:8px;">💡 기타소득금액 300만원 이하 → 분리과세(${fmtWon(otherSeparateTax)}) vs 종합과세 비교 후 유리한 쪽이 자동 적용됩니다.</div>` : ''}
+    </div>
     ` : ''}
 
     <div class="report-section">
-      <h4>${hasSalary ? '③' : '②'} 종합소득금액 → 과세표준</h4>
-      ${hasSalary ? `
+      <h4>${sn()} 종합소득금액 → 과세표준</h4>
       <div class="report-row"><span class="label">사업소득금액${bizIncome < 0 ? ' (적자)' : ''}</span><span style="${bizIncome < 0 ? 'color:var(--expense)' : ''}">${bizIncome < 0 ? '-' + fmtWon(Math.abs(bizIncome)) : fmtWon(bizIncome)}</span></div>
-      <div class="report-row"><span class="label">(+) 근로소득금액</span><span>${fmtWon(salaryIncome)}</span></div>
+      ${hasSalary ? `<div class="report-row"><span class="label">(+) 근로소득금액</span><span>${fmtWon(salaryIncome)}</span></div>` : ''}
+      ${hasOther ? `<div class="report-row"><span class="label">(+) 기타소득금액</span><span>${fmtWon(otherIncomeAmount)}</span></div>` : ''}
       <div class="report-row" style="font-weight:600;border-top:1px solid var(--border);padding-top:8px;margin-top:4px"><span class="label">종합소득금액</span><span>${fmtWon(totalIncome)}</span></div>
-      ` : `
-      <div class="report-row"><span class="label">종합소득금액</span><span>${fmtWon(totalIncome)}</span></div>
-      `}
       <div class="report-row" style="margin-top:8px"><span class="label">(-) 인적공제 (본인 + ${dependents}명)</span><span>${fmtWon(personalDeduction)}</span></div>
       ${insuranceDeduction > 0 ? `
       <div class="report-row"><span class="label">(-) 국민연금</span><span>${fmtWon(pensionDeduction)}</span></div>
@@ -2393,14 +2631,14 @@ function renderIncomeTax() {
     </div>
 
     <div class="report-section">
-      <h4>${hasSalary ? '④' : '③'} 산출세액</h4>
+      <h4>${sn()} 산출세액</h4>
       <div class="report-row"><span class="label">과세표준</span><span>${fmtWon(taxableBase)}</span></div>
       <div class="report-row"><span class="label">적용 세율</span><span>${appliedRate}%</span></div>
       <div class="report-row total"><span class="label">산출세액</span><span>${fmtWon(computedTax)}</span></div>
     </div>
 
     <div class="report-section">
-      <h4>${hasSalary ? '⑤' : '④'} 세액공제</h4>
+      <h4>${sn()} 세액공제</h4>
       <div class="report-row"><span class="label">근로소득세액공제</span><span>${fmtWon(earnedIncomeCredit)}</span></div>
       <div class="report-row"><span class="label">의료비 세액공제</span><span>${fmtWon(yeDeductions.medicalCredit)}</span></div>
       <div class="report-row"><span class="label">교육비 세액공제</span><span>${fmtWon(yeDeductions.educationCredit)}</span></div>
@@ -2411,7 +2649,7 @@ function renderIncomeTax() {
     </div>
 
     <div class="report-section">
-      <h4>${hasSalary ? '⑥' : '⑤'} 결정세액</h4>
+      <h4>${sn()} 결정세액</h4>
       <div class="report-row"><span class="label">산출세액</span><span>${fmtWon(computedTax)}</span></div>
       <div class="report-row"><span class="label">(-) 세액공제 합계</span><span>${fmtWon(totalTaxCredits)}</span></div>
       <div class="report-row" style="font-weight:600;border-top:1px solid var(--border);padding-top:8px;margin-top:4px"><span class="label">결정세액 (소득세)</span><span>${fmtWon(determinedTax)}</span></div>
@@ -2420,12 +2658,14 @@ function renderIncomeTax() {
     </div>
 
     <div class="report-section">
-      <h4>${hasSalary ? '⑦' : '⑥'} 기납부세액 차감</h4>
+      <h4>${sn()} 기납부세액 차감</h4>
       <div class="report-row"><span class="label">결정세액 (소득세)</span><span>${fmtWon(determinedTax)}</span></div>
-      <div class="report-row"><span class="label">(-) 연말정산 결정세액 (소득세)</span><span>${fmtWon(paidIncomeTax)}</span></div>
+      ${yeDeductions.yeDeterminedTax > 0 ? `<div class="report-row"><span class="label">(-) 연말정산 결정세액</span><span>${fmtWon(yeDeductions.yeDeterminedTax)}</span></div>` : ''}
+      ${otherWithheldTax > 0 ? `<div class="report-row"><span class="label">(-) 기타소득 원천징수 (소득세)</span><span>${fmtWon(otherWithheldTax)}</span></div>` : ''}
       <div class="report-row" style="font-weight:600"><span class="label">소득세 ${finalTax >= 0 ? '추가납부' : '환급'}</span><span style="color:${finalTax >= 0 ? 'var(--expense)' : 'var(--income)'}">${fmtWon(Math.abs(finalTax))}</span></div>
       <div class="report-row" style="margin-top:8px"><span class="label">지방소득세</span><span>${fmtWon(localTax)}</span></div>
-      <div class="report-row"><span class="label">(-) 연말정산 결정세액 (지방세)</span><span>${fmtWon(paidLocalTax)}</span></div>
+      ${yeDeductions.yeDeterminedLocal > 0 ? `<div class="report-row"><span class="label">(-) 연말정산 결정세액 (지방세)</span><span>${fmtWon(yeDeductions.yeDeterminedLocal)}</span></div>` : ''}
+      ${otherWithheldLocal > 0 ? `<div class="report-row"><span class="label">(-) 기타소득 원천징수 (지방세)</span><span>${fmtWon(otherWithheldLocal)}</span></div>` : ''}
       <div class="report-row" style="font-weight:600"><span class="label">지방소득세 ${finalLocal >= 0 ? '추가납부' : '환급'}</span><span style="color:${finalLocal >= 0 ? 'var(--expense)' : 'var(--income)'}">${fmtWon(Math.abs(finalLocal))}</span></div>
       <div class="report-row total"><span class="label">${totalFinal >= 0 ? '최종 추가 납부세액' : '최종 환급세액'}</span><span style="color:${totalFinal >= 0 ? 'var(--expense)' : 'var(--income)'}">${fmtWon(Math.abs(totalFinal))}</span></div>
     </div>
@@ -4668,6 +4908,193 @@ async function confirmCoupangUpload() {
   closeCoupangModal();
   renderTransactions();
   alert(`등록 완료!\n\n• 쿠팡 매출: ${totalSales.toLocaleString()}원\n• 판매수수료: ${totalFee.toLocaleString()}원`);
+}
+
+// ========== 거래명세서 ==========
+let stmtItemCount = 0;
+
+function renderStatement() {
+  // 초기: 오늘 날짜, 품목 1개
+  if (!document.getElementById('stmtDate').value) {
+    document.getElementById('stmtDate').value = new Date().toISOString().slice(0, 10);
+  }
+  if (stmtItemCount === 0) addStmtItem();
+}
+
+function addStmtItem() {
+  stmtItemCount++;
+  const row = document.createElement('tr');
+  row.id = 'stmtRow_' + stmtItemCount;
+  row.innerHTML = `
+    <td><input type="text" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:4px;" placeholder="품명"></td>
+    <td><input type="text" style="width:80px;padding:6px;border:1px solid #ddd;border-radius:4px;" placeholder="규격"></td>
+    <td><input type="number" style="width:70px;padding:6px;border:1px solid #ddd;border-radius:4px;text-align:right;" value="1" min="1" oninput="calcStmtRow(this)"></td>
+    <td><input type="number" style="width:100px;padding:6px;border:1px solid #ddd;border-radius:4px;text-align:right;" placeholder="0" oninput="calcStmtRow(this)"></td>
+    <td style="text-align:right;font-weight:600;padding:8px;" class="stmtSupply">0</td>
+    <td style="text-align:right;padding:8px;" class="stmtVat">0</td>
+    <td><button class="btn btn-danger btn-sm" onclick="removeStmtItem(this)" style="padding:2px 8px;">✕</button></td>
+  `;
+  document.getElementById('stmtItemsBody').appendChild(row);
+}
+
+function removeStmtItem(btn) {
+  const rows = document.getElementById('stmtItemsBody').querySelectorAll('tr');
+  if (rows.length <= 1) return;
+  btn.closest('tr').remove();
+}
+
+function calcStmtRow(input) {
+  const row = input.closest('tr');
+  const inputs = row.querySelectorAll('input[type="number"]');
+  const qty = parseInt(inputs[0].value) || 0;
+  const price = parseInt(inputs[1].value) || 0;
+  const supply = qty * price;
+  const vat = Math.round(supply * 0.1);
+  row.querySelector('.stmtSupply').textContent = supply.toLocaleString();
+  row.querySelector('.stmtVat').textContent = vat.toLocaleString();
+}
+
+function getStmtItems() {
+  const items = [];
+  document.getElementById('stmtItemsBody').querySelectorAll('tr').forEach(row => {
+    const textInputs = row.querySelectorAll('input[type="text"]');
+    const numInputs = row.querySelectorAll('input[type="number"]');
+    const name = textInputs[0]?.value?.trim() || '';
+    const spec = textInputs[1]?.value?.trim() || '';
+    const qty = parseInt(numInputs[0]?.value) || 0;
+    const price = parseInt(numInputs[1]?.value) || 0;
+    const supply = qty * price;
+    const vat = Math.round(supply * 0.1);
+    if (name) items.push({ name, spec, qty, price, supply, vat });
+  });
+  return items;
+}
+
+function previewStatement() {
+  const biz = currentBiz();
+  if (!biz) { alert('사업자를 선택하세요.'); return; }
+  const date = document.getElementById('stmtDate').value;
+  const no = document.getElementById('stmtNo').value.trim();
+  const buyerName = document.getElementById('stmtBuyerName').value.trim();
+  const buyerRegNo = document.getElementById('stmtBuyerRegNo').value.trim();
+  const buyerOwner = document.getElementById('stmtBuyerOwner').value.trim();
+  const buyerAddr = document.getElementById('stmtBuyerAddr').value.trim();
+  const memo = document.getElementById('stmtMemo').value.trim();
+  const items = getStmtItems();
+
+  if (!date || !buyerName || items.length === 0) {
+    alert('작성일자, 거래처 상호, 품목을 입력하세요.');
+    return;
+  }
+
+  const totalSupply = items.reduce((s, i) => s + i.supply, 0);
+  const totalVat = items.reduce((s, i) => s + i.vat, 0);
+  const totalAmount = totalSupply + totalVat;
+
+  const sectors = (biz.sectors || []).map(s => s.category).join(', ') || '';
+  const fmtDate = date.replace(/-/g, '. ') + '.';
+
+  // 빈 행 채우기 (최소 10행)
+  const padded = [...items];
+  while (padded.length < 10) padded.push({ name: '', spec: '', qty: '', price: '', supply: '', vat: '' });
+
+  let html = `<div class="stmt">
+    <div class="stmt-title">거 래 명 세 서</div>
+    ${no ? `<div style="text-align:right;font-size:12px;margin-bottom:8px;">No. ${no}</div>` : ''}
+
+    <div class="stmt-header">
+      <table class="stmt-party">
+        <tr><td class="party-label" colspan="4">공 급 자</td></tr>
+        <tr><th>등록번호</th><td colspan="3">${biz.regNo || ''}</td></tr>
+        <tr><th>상 호</th><td>${biz.name}</td><th>대 표</th><td>${biz.owner || ''}</td></tr>
+        <tr><th>업 태</th><td colspan="3">${sectors}</td></tr>
+      </table>
+      <table class="stmt-party">
+        <tr><td class="party-label" colspan="4">공 급 받 는 자</td></tr>
+        <tr><th>등록번호</th><td colspan="3">${buyerRegNo}</td></tr>
+        <tr><th>상 호</th><td>${buyerName}</td><th>대 표</th><td>${buyerOwner}</td></tr>
+        <tr><th>주 소</th><td colspan="3">${buyerAddr}</td></tr>
+      </table>
+    </div>
+
+    <div style="text-align:right;font-size:13px;margin-bottom:8px;">
+      <b>작성일자:</b> ${fmtDate} &nbsp;&nbsp;
+      <b>합계금액: ₩${totalAmount.toLocaleString()}</b>
+    </div>
+
+    <table class="stmt-items">
+      <thead>
+        <tr>
+          <th style="width:30px;">No</th>
+          <th>품 명</th>
+          <th style="width:70px;">규 격</th>
+          <th style="width:50px;">수 량</th>
+          <th style="width:90px;">단 가</th>
+          <th style="width:100px;">공급가액</th>
+          <th style="width:80px;">세 액</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${padded.map((item, i) => `<tr>
+          <td class="center">${item.name ? i + 1 : ''}</td>
+          <td class="left">${item.name}</td>
+          <td class="center">${item.spec}</td>
+          <td>${item.qty !== '' ? (typeof item.qty === 'number' ? item.qty.toLocaleString() : item.qty) : ''}</td>
+          <td>${item.price !== '' ? (typeof item.price === 'number' ? item.price.toLocaleString() : item.price) : ''}</td>
+          <td>${item.supply !== '' ? (typeof item.supply === 'number' ? item.supply.toLocaleString() : item.supply) : ''}</td>
+          <td>${item.vat !== '' ? (typeof item.vat === 'number' ? item.vat.toLocaleString() : item.vat) : ''}</td>
+        </tr>`).join('')}
+        <tr class="stmt-total">
+          <td class="center" colspan="2">합 계</td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td>${totalSupply.toLocaleString()}</td>
+          <td>${totalVat.toLocaleString()}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    ${memo ? `<div class="stmt-footer" style="margin-top:12px;"><b>비고:</b> ${memo}</div>` : ''}
+    <div class="stmt-footer" style="margin-top:24px;text-align:center;">
+      위 금액을 ${date < new Date().toISOString().slice(0,10) ? '영수' : '청구'} 함.
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:32px;font-size:13px;">
+      <div style="text-align:center;width:45%;">
+        <div style="margin-bottom:40px;">공급자</div>
+        <div style="border-top:1px solid #999;padding-top:4px;">${biz.name} (인)</div>
+      </div>
+      <div style="text-align:center;width:45%;">
+        <div style="margin-bottom:40px;">공급받는자</div>
+        <div style="border-top:1px solid #999;padding-top:4px;">${buyerName} (인)</div>
+      </div>
+    </div>
+  </div>`;
+
+  document.getElementById('stmtPrintArea').innerHTML = html;
+  document.getElementById('stmtModal').classList.add('show');
+}
+
+function closeStmtModal() {
+  document.getElementById('stmtModal').classList.remove('show');
+}
+
+function printStatement() {
+  window.print();
+}
+
+function resetStatement() {
+  if (!confirm('거래명세서 내용을 초기화하시겠습니까?')) return;
+  document.getElementById('stmtDate').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('stmtNo').value = '';
+  document.getElementById('stmtBuyerName').value = '';
+  document.getElementById('stmtBuyerRegNo').value = '';
+  document.getElementById('stmtBuyerOwner').value = '';
+  document.getElementById('stmtBuyerAddr').value = '';
+  document.getElementById('stmtMemo').value = '';
+  document.getElementById('stmtItemsBody').innerHTML = '';
+  stmtItemCount = 0;
+  addStmtItem();
 }
 
 // ========== INIT ==========
