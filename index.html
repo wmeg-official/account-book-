@@ -122,6 +122,18 @@ tbody tr:hover { background: #f8fafc; }
 
 /* Chart placeholder */
 .chart-container { background: var(--card); border-radius: 12px; border: 1px solid var(--border); padding: 20px; margin-bottom: 16px; }
+.bep-slider-group { margin-bottom:14px; }
+.bep-slider-group label { display:block;font-size:12px;color:var(--text-light);margin-bottom:4px; }
+.bep-slider-row { display:flex;align-items:center;gap:10px; }
+.bep-slider-row input[type="range"] { flex:1;height:6px;appearance:none;background:var(--border);border-radius:3px;outline:none;cursor:pointer; }
+.bep-slider-row input[type="range"]::-webkit-slider-thumb { appearance:none;width:16px;height:16px;background:var(--primary);border-radius:50%;border:2px solid #fff;cursor:pointer; }
+.bep-val { font-size:13px;font-weight:700;min-width:60px;text-align:right; }
+.bep-menu-item { border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px; }
+.bep-menu-item h5 { margin:0 0 8px;display:flex;justify-content:space-between;align-items:center; }
+.bep-menu-item .bep-menu-grid { display:grid;grid-template-columns:1fr 1fr;gap:6px; }
+.bep-menu-item .bep-menu-grid label { font-size:11px;color:var(--text-light); }
+.bep-menu-item .bep-menu-grid input { width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--text);font-size:12px; }
+.bep-menu-margin { font-size:11px;color:var(--text-light);margin-top:6px; }
 .bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 240px; padding: 10px 0; }
 .bar-group { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
 .bar { width: 16px; border-radius: 4px 4px 0 0; transition: height 0.3s; min-height: 2px; }
@@ -213,6 +225,7 @@ tbody tr:hover { background: #f8fafc; }
       <select id="bizSelect" onchange="switchBiz()"></select>
     </div>
     <nav>
+      <a onclick="showPage('bep')" data-page="bep"><span class="icon">📈</span> BEP 분석</a>
       <a onclick="showPage('dashboard')" data-page="dashboard" class="active"><span class="icon">📊</span> 대시보드</a>
       <a onclick="showPage('transactions')" data-page="transactions"><span class="icon">📝</span> 거래 내역</a>
       <a onclick="showPage('proxy')" data-page="proxy"><span class="icon">🛒</span> 구매대행</a>
@@ -231,6 +244,115 @@ tbody tr:hover { background: #f8fafc; }
 
   <main class="main">
     <!-- 대시보드 -->
+    <!-- BEP 분석 -->
+    <div id="page-bep" class="page">
+      <h2 class="page-title">BEP 분석 (손익분기점 시뮬레이터)</h2>
+
+      <!-- BEP 결과 히어로 -->
+      <div class="card" id="bepHero" style="text-align:center;border:1px solid var(--primary);background:rgba(37,99,235,0.04);margin-bottom:16px;">
+        <div style="font-size:12px;color:var(--primary);letter-spacing:0.08em;margin-bottom:8px;">월 손익분기 매출</div>
+        <div id="bepSalesResult" style="font-size:32px;font-weight:800;color:var(--text);line-height:1;">0원</div>
+        <div style="display:flex;justify-content:center;gap:24px;margin-top:14px;">
+          <div><div id="bepMonthOrders" style="font-size:18px;font-weight:700;">0</div><div style="font-size:10px;color:var(--text-light);">월 주문수</div></div>
+          <div style="width:1px;background:var(--border);"></div>
+          <div><div id="bepDailyOrders" style="font-size:18px;font-weight:700;">0</div><div style="font-size:10px;color:var(--text-light);">일 주문수</div></div>
+          <div style="width:1px;background:var(--border);"></div>
+          <div><div id="bepHourlyOrders" style="font-size:18px;font-weight:700;">0</div><div style="font-size:10px;color:var(--text-light);">시간당</div></div>
+        </div>
+      </div>
+
+      <!-- 일매출 비교 -->
+      <div class="cards" style="margin-bottom:16px;">
+        <div class="card">
+          <div class="card-label">BEP 일매출 목표</div>
+          <div class="card-value expense" id="bepDailySalesTarget">0원</div>
+        </div>
+        <div class="card">
+          <div class="card-label">현재 평균 일매출</div>
+          <div class="card-value income" id="bepDailySalesActual">0원</div>
+          <div class="card-sub" id="bepDailySalesSub"></div>
+        </div>
+        <div class="card">
+          <div class="card-label">BEP 달성률</div>
+          <div class="card-value" id="bepAchieveRate">0%</div>
+          <div style="height:6px;background:var(--border);border-radius:3px;margin-top:8px;overflow:hidden;">
+            <div id="bepAchieveBar" style="height:100%;border-radius:3px;transition:width 0.3s;width:0%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 요약 카드 -->
+      <div class="cards" style="margin-bottom:16px;">
+        <div class="card"><div class="card-label">평균 객단가</div><div class="card-value" id="bepAvgPrice">0원</div></div>
+        <div class="card"><div class="card-label">가중 마진율</div><div class="card-value" id="bepMarginPct">0%</div></div>
+        <div class="card"><div class="card-label">월 고정비</div><div class="card-value" id="bepFixedTotal">0원</div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <!-- 고정비 -->
+        <div class="card">
+          <h4 style="margin-bottom:4px;">고정비 (만원/월)</h4>
+          <p style="font-size:11px;color:var(--text-light);margin:0 0 14px;">부가세 제외 금액 기준</p>
+          <div class="bep-slider-group">
+            <label>임대료</label>
+            <div class="bep-slider-row">
+              <input type="range" id="bepRent" min="0" max="500" step="10" value="120" oninput="calcBEP()">
+              <span class="bep-val" id="bepRentVal">120만</span>
+            </div>
+          </div>
+          <div class="bep-slider-group">
+            <label>관리비/공과금</label>
+            <div class="bep-slider-row">
+              <input type="range" id="bepUtilities" min="0" max="200" step="5" value="30" oninput="calcBEP()">
+              <span class="bep-val" id="bepUtilitiesVal">30만</span>
+            </div>
+          </div>
+          <div class="bep-slider-group">
+            <label>인건비</label>
+            <div class="bep-slider-row">
+              <input type="range" id="bepLabor" min="0" max="1000" step="10" value="0" oninput="calcBEP()">
+              <span class="bep-val" id="bepLaborVal">0만</span>
+            </div>
+          </div>
+          <div class="bep-slider-group">
+            <label>기타 고정비 <span style="font-size:11px;color:var(--text-light);">(보험/감가/구독)</span></label>
+            <div class="bep-slider-row">
+              <input type="range" id="bepOtherFixed" min="0" max="300" step="10" value="50" oninput="calcBEP()">
+              <span class="bep-val" id="bepOtherFixedVal">50만</span>
+            </div>
+          </div>
+          <div class="bep-slider-group">
+            <label>월 영업일수</label>
+            <div class="bep-slider-row">
+              <input type="range" id="bepDaysOpen" min="4" max="31" step="1" value="26" oninput="calcBEP()">
+              <span class="bep-val" id="bepDaysOpenVal">26일</span>
+            </div>
+          </div>
+          <div class="bep-slider-group">
+            <label>일 영업시간</label>
+            <div class="bep-slider-row">
+              <input type="range" id="bepHours" min="4" max="24" step="1" value="10" oninput="calcBEP()">
+              <span class="bep-val" id="bepHoursVal">10시간</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 메뉴 설정 -->
+        <div class="card">
+          <h4 style="margin-bottom:4px;">메뉴 설정</h4>
+          <p style="font-size:11px;color:var(--text-light);margin:0 0 14px;">판매가/원가 모두 부가세 제외 금액</p>
+          <div id="bepMenuList"></div>
+          <button class="btn btn-outline" style="margin-top:12px;width:100%;" onclick="addBepMenu()">+ 메뉴 추가</button>
+        </div>
+      </div>
+
+      <!-- 인사이트 -->
+      <div class="card" style="margin-top:16px;">
+        <h4 style="margin-bottom:8px;">Insight</h4>
+        <p id="bepInsight" style="font-size:13px;color:var(--text-light);line-height:1.6;margin:0;"></p>
+      </div>
+    </div>
+
     <div id="page-dashboard" class="page active">
       <h2 class="page-title">대시보드</h2>
       <div class="filter-bar">
@@ -1280,6 +1402,7 @@ async function loadDataFromServer() {
       categories: (categories.income.length > 0 || categories.expense.length > 0) ? categories : getDefaultData().categories,
       cards, banks, assets, proxyOrders,
       yearendInputs, incomeTaxInputs,
+      bepSettings: myPersonId && settingsMap['bep_' + myPersonId] ? { [myPersonId]: settingsMap['bep_' + myPersonId] } : {},
       currentBiz: settingsMap.currentBiz && myBizIds.includes(settingsMap.currentBiz) ? settingsMap.currentBiz : (businesses[0]?.id || ''),
       transactions
     };
@@ -1463,6 +1586,7 @@ function showPage(page) {
 
 function renderPage(page) {
   switch(page) {
+    case 'bep': renderBEP(); break;
     case 'dashboard': renderDashboard(); break;
     case 'transactions': renderTransactions(); break;
     case 'vat': renderVat(); break;
@@ -1570,6 +1694,180 @@ function populateBizSelect() {
     DATA.currentBiz = bizList[0].id;
     sel.value = DATA.currentBiz;
   }
+}
+
+// ========== BEP ==========
+let bepMenus = [
+  { name: '커피', price: 5000, cost: 1500, ratio: 50 },
+  { name: '맥주', price: 8000, cost: 3000, ratio: 30 },
+  { name: '디저트', price: 5500, cost: 2000, ratio: 20 },
+];
+
+function renderBEP() {
+  // 저장된 BEP 설정 로드
+  const pid = currentPersonId();
+  const saved = (DATA.bepSettings || {})[pid];
+  if (saved) {
+    document.getElementById('bepRent').value = saved.rent ?? 120;
+    document.getElementById('bepUtilities').value = saved.utilities ?? 30;
+    document.getElementById('bepLabor').value = saved.labor ?? 0;
+    document.getElementById('bepOtherFixed').value = saved.otherFixed ?? 50;
+    document.getElementById('bepDaysOpen').value = saved.daysOpen ?? 26;
+    document.getElementById('bepHours').value = saved.hours ?? 10;
+    if (saved.menus && saved.menus.length > 0) bepMenus = saved.menus;
+  }
+  renderBepMenuList();
+  calcBEP();
+}
+
+let _bepSaveTimer = null;
+function saveBepSettings() {
+  if (_bepSaveTimer) clearTimeout(_bepSaveTimer);
+  _bepSaveTimer = setTimeout(async () => {
+    const pid = currentPersonId();
+    if (!pid) return;
+    const settings = {
+      rent: +document.getElementById('bepRent').value,
+      utilities: +document.getElementById('bepUtilities').value,
+      labor: +document.getElementById('bepLabor').value,
+      otherFixed: +document.getElementById('bepOtherFixed').value,
+      daysOpen: +document.getElementById('bepDaysOpen').value,
+      hours: +document.getElementById('bepHours').value,
+      menus: bepMenus
+    };
+    if (!DATA.bepSettings) DATA.bepSettings = {};
+    DATA.bepSettings[pid] = settings;
+    try {
+      await sb.from('app_settings').upsert({ key: 'bep_' + pid, value: settings });
+    } catch (e) { console.error('BEP save error:', e); }
+  }, 800);
+}
+
+function renderBepMenuList() {
+  const el = document.getElementById('bepMenuList');
+  el.innerHTML = bepMenus.map((m, i) => {
+    const margin = m.price - m.cost;
+    const marginPct = m.price > 0 ? ((margin / m.price) * 100).toFixed(0) : 0;
+    return `<div class="bep-menu-item">
+      <h5>
+        <input type="text" value="${m.name}" style="border:none;background:transparent;color:var(--text);font-weight:700;font-size:14px;padding:0;width:120px;" onchange="bepMenus[${i}].name=this.value;saveBepSettings()">
+        <button class="btn btn-outline" style="padding:2px 8px;font-size:11px;" onclick="removeBepMenu(${i})">삭제</button>
+      </h5>
+      <div class="bep-menu-grid">
+        <div><label>판매가</label><input type="number" value="${m.price}" min="0" step="500" onchange="bepMenus[${i}].price=+this.value;calcBEP()"></div>
+        <div><label>원가</label><input type="number" value="${m.cost}" min="0" step="100" onchange="bepMenus[${i}].cost=+this.value;calcBEP()"></div>
+        <div><label>매출 비중 (%)</label><input type="number" value="${m.ratio}" min="0" max="100" step="5" onchange="bepMenus[${i}].ratio=+this.value;calcBEP()"></div>
+        <div><label>마진</label><input type="text" value="${fmt(margin)}원 (${marginPct}%)" readonly style="background:var(--bg);color:var(--text-light);"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function addBepMenu() {
+  bepMenus.push({ name: '새 메뉴', price: 5000, cost: 2000, ratio: 10 });
+  renderBepMenuList();
+  calcBEP();
+}
+
+function removeBepMenu(i) {
+  bepMenus.splice(i, 1);
+  renderBepMenuList();
+  calcBEP();
+}
+
+function calcBEP() {
+  const rent = +document.getElementById('bepRent').value;
+  const utilities = +document.getElementById('bepUtilities').value;
+  const labor = +document.getElementById('bepLabor').value;
+  const otherFixed = +document.getElementById('bepOtherFixed').value;
+  const daysOpen = +document.getElementById('bepDaysOpen').value;
+  const hours = +document.getElementById('bepHours').value;
+
+  document.getElementById('bepRentVal').textContent = rent + '만';
+  document.getElementById('bepUtilitiesVal').textContent = utilities + '만';
+  document.getElementById('bepLaborVal').textContent = labor + '만';
+  document.getElementById('bepOtherFixedVal').textContent = otherFixed + '만';
+  document.getElementById('bepDaysOpenVal').textContent = daysOpen + '일';
+  document.getElementById('bepHoursVal').textContent = hours + '시간';
+
+  const totalFixed = (rent + utilities + labor + otherFixed) * 10000;
+  const totalRatio = bepMenus.reduce((s, m) => s + m.ratio, 0) || 1;
+
+  let weightedAvgPrice = 0, weightedAvgMargin = 0;
+  bepMenus.forEach(m => {
+    const r = m.ratio / totalRatio;
+    weightedAvgPrice += r * m.price;
+    weightedAvgMargin += r * (m.price - m.cost);
+  });
+
+  const weightedMarginPct = weightedAvgPrice > 0 ? (weightedAvgMargin / weightedAvgPrice) * 100 : 0;
+  const bepSales = weightedMarginPct > 0 ? totalFixed / (weightedMarginPct / 100) : 0;
+  const bepOrders = weightedAvgMargin > 0 ? totalFixed / weightedAvgMargin : 0;
+  const bepDaily = daysOpen > 0 ? bepOrders / daysOpen : 0;
+  const bepHourly = hours > 0 ? bepDaily / hours : 0;
+
+  document.getElementById('bepSalesResult').textContent = fmtWon(bepSales);
+  document.getElementById('bepMonthOrders').textContent = fmt(Math.round(bepOrders));
+  document.getElementById('bepDailyOrders').textContent = bepDaily.toFixed(1);
+  document.getElementById('bepHourlyOrders').textContent = bepHourly.toFixed(1);
+  document.getElementById('bepAvgPrice').textContent = fmtWon(Math.round(weightedAvgPrice));
+  document.getElementById('bepFixedTotal').textContent = fmtWon(totalFixed);
+
+  const marginEl = document.getElementById('bepMarginPct');
+  marginEl.textContent = weightedMarginPct.toFixed(1) + '%';
+  marginEl.className = 'card-value ' + (weightedMarginPct >= 60 ? 'income' : weightedMarginPct >= 50 ? 'primary' : 'expense');
+
+  // Insight
+  const insight = bepDaily <= 15
+    ? `하루 ${bepDaily.toFixed(1)}건 수준이면 1인 운영으로 충분히 달성 가능한 구간입니다.`
+    : bepDaily <= 30
+    ? `하루 ${bepDaily.toFixed(1)}건은 피크타임 집중 운영으로 커버 가능하지만, 비수기 대응이 필요합니다. 객단가를 높이는 방향도 고려해보세요.`
+    : `하루 ${bepDaily.toFixed(1)}건은 1인 운영으로는 도전적인 수치입니다. 고정비를 줄이거나 객단가를 높이는 구조적 개선이 필요합니다.`;
+  document.getElementById('bepInsight').textContent = insight;
+
+  // 일매출 계산 (실제 장부 데이터 기반)
+  const bepDailySalesTarget = daysOpen > 0 ? Math.round(bepSales / daysOpen) : 0;
+  document.getElementById('bepDailySalesTarget').textContent = fmtWon(bepDailySalesTarget);
+
+  const now = new Date();
+  const curYear = now.getFullYear();
+  const curMonth = now.getMonth() + 1;
+  const incomeTxs = bizTransactions().filter(t => t.type === 'income');
+
+  // 최근 달 기준 일매출 계산 (이번 달 데이터 있으면 이번 달, 없으면 직전 달)
+  let targetMonth = curMonth, targetYear = curYear;
+  let monthIncomeTxs = incomeTxs.filter(t => { const d = new Date(t.date); return d.getFullYear() === targetYear && d.getMonth() + 1 === targetMonth; });
+  if (monthIncomeTxs.length === 0 && curMonth > 1) {
+    targetMonth = curMonth - 1;
+    monthIncomeTxs = incomeTxs.filter(t => { const d = new Date(t.date); return d.getFullYear() === targetYear && d.getMonth() + 1 === targetMonth; });
+  }
+  const monthTotal = monthIncomeTxs.reduce((s, t) => s + t.amount, 0);
+  const salesDays = new Set(monthIncomeTxs.map(t => t.date)).size || 1;
+  const avgDailySales = Math.round(monthTotal / salesDays);
+  const achieveRate = bepDailySalesTarget > 0 ? Math.min((avgDailySales / bepDailySalesTarget) * 100, 200) : 0;
+
+  document.getElementById('bepDailySalesActual').textContent = fmtWon(avgDailySales);
+  document.getElementById('bepDailySalesSub').textContent = `${targetYear}년 ${targetMonth}월 기준 (${salesDays}일)`;
+
+  const rateEl = document.getElementById('bepAchieveRate');
+  rateEl.textContent = achieveRate.toFixed(1) + '%';
+  rateEl.className = 'card-value ' + (achieveRate >= 100 ? 'income' : achieveRate >= 70 ? 'primary' : 'expense');
+
+  const bar = document.getElementById('bepAchieveBar');
+  bar.style.width = Math.min(achieveRate, 100) + '%';
+  bar.style.background = achieveRate >= 100 ? 'var(--income)' : achieveRate >= 70 ? 'var(--primary)' : 'var(--expense)';
+
+  // 메뉴별 마진 표시만 업데이트 (리렌더 안함 — 포커스 유지)
+  bepMenus.forEach((m, i) => {
+    const marginInput = document.querySelector(`#bepMenuList .bep-menu-item:nth-child(${i+1}) input[readonly]`);
+    if (marginInput) {
+      const margin = m.price - m.cost;
+      const pct = m.price > 0 ? ((margin / m.price) * 100).toFixed(0) : 0;
+      marginInput.value = fmt(margin) + '원 (' + pct + '%)';
+    }
+  });
+
+  saveBepSettings();
 }
 
 // ========== DASHBOARD ==========
