@@ -768,6 +768,10 @@ tbody tr:hover { background: #f8fafc; }
         <input type="number" id="txSalaryNet" placeholder="자동계산" readonly style="background:#f1f5f9">
       </div>
     </div>
+    <div class="form-group txBizField" style="flex-direction:row;align-items:center;gap:8px;">
+      <input type="checkbox" id="txIsFixed" style="width:18px;height:18px;cursor:pointer;">
+      <label for="txIsFixed" style="cursor:pointer;margin:0;font-size:13px;">📌 고정비 (매달 반복 지출)</label>
+    </div>
     <div class="form-group">
       <label>메모</label>
       <textarea id="txMemo" rows="2" placeholder="메모 입력"></textarea>
@@ -1192,7 +1196,7 @@ async function loadDataFromServer() {
       category: t.category || '', partner: t.partner || '',
       amount: t.amount || 0, vat: t.vat || 0,
       taxType: t.tax_type || 'taxable', evidence: t.evidence || 'none',
-      card: t.card || '', bank: t.bank || '', sector: t.sector || '', memo: t.memo || '',
+      card: t.card || '', bank: t.bank || '', sector: t.sector || '', memo: t.memo || '', isFixed: !!t.is_fixed,
       salaryGross: t.salary_gross || 0, salaryTaxWithheld: t.salary_tax_withheld || 0,
       salaryLocalWithheld: t.salary_local_withheld || 0,
       salaryPension: t.salary_pension || 0, salaryHealth: t.salary_health || 0,
@@ -1583,11 +1587,24 @@ function renderDashboard() {
   const totalVatIn = txs.filter(t => t.type === 'expense').reduce((s, t) => s + (t.vat || 0), 0);
   const profit = totalIncome - totalExpense;
 
+  // 고정비 계산 (최근 달 기준으로 월 고정비 추정)
+  const fixedTxs = txs.filter(t => t.type === 'expense' && t.isFixed);
+  const fixedTotal = fixedTxs.reduce((s, t) => s + t.amount, 0);
+  const fixedByCat = {};
+  fixedTxs.forEach(t => {
+    const cat = t.category || '미분류';
+    fixedByCat[cat] = (fixedByCat[cat] || 0) + t.amount;
+  });
+  const fixedCount = fixedTxs.length;
+  const fixedMonths = month === 'all' ? new Set(fixedTxs.map(t => new Date(t.date).getMonth() + 1)).size || 1 : 1;
+  const fixedMonthly = Math.round(fixedTotal / fixedMonths);
+  const fixedDetail = Object.entries(fixedByCat).sort((a,b) => b[1] - a[1]).slice(0, 5).map(([c, a]) => `${c} ${fmtWon(Math.round(a / fixedMonths))}`).join('<br>');
+
   document.getElementById('dashCards').innerHTML = `
     <div class="card"><div class="card-label">총 매출</div><div class="card-value income">${fmtWon(totalIncome)}</div><div class="card-sub">부가세 ${fmtWon(totalVatOut)}</div></div>
     <div class="card"><div class="card-label">총 매입/비용</div><div class="card-value expense">${fmtWon(totalExpense)}</div><div class="card-sub">부가세 ${fmtWon(totalVatIn)}</div></div>
     <div class="card"><div class="card-label">순이익</div><div class="card-value ${profit >= 0 ? 'income' : 'expense'}">${fmtWon(profit)}</div><div class="card-sub">이익률 ${totalIncome > 0 ? ((profit / totalIncome) * 100).toFixed(1) : 0}%</div></div>
-    <div class="card"><div class="card-label">거래 건수</div><div class="card-value primary">${txs.length}건</div><div class="card-sub">매출 ${txs.filter(t=>t.type==='income').length} / 비용 ${txs.filter(t=>t.type==='expense').length}</div></div>
+    <div class="card"><div class="card-label">📌 월 고정비</div><div class="card-value expense">${fmtWon(fixedMonthly)}</div><div class="card-sub" style="font-size:11px;line-height:1.6;">${fixedDetail || '고정비 없음'}</div></div>
   `;
 
   // 월별 데이터 계산 (차트 + 파이에서 공용)
@@ -1845,7 +1862,7 @@ function renderTransactions() {
     ${txs.map(t => `<tr>
       <td>${t.date}</td>
       <td><span class="badge badge-${t.type}">${typeLabel(t)}</span></td>
-      <td>${t.type === 'salary' ? `<span style="font-size:12px;color:var(--text-light)">${salaryDetail(t)}</span>` : (t.category || '-')}</td>
+      <td>${t.type === 'salary' ? `<span style="font-size:12px;color:var(--text-light)">${salaryDetail(t)}</span>` : (t.isFixed ? '📌 ' : '') + (t.category || '-')}</td>
       <td class="td-partner">${t.partner || '-'}</td>
       <td class="${t.type === 'salary' ? 'amount-income' : 'amount-'+t.type}">${fmtWon(t.type === 'salary' ? (t.salaryGross||t.amount) : t.amount)}</td>
       <td>${t.type === 'salary' ? fmtWon((t.salaryTaxWithheld||0)+(t.salaryLocalWithheld||0)) : fmtWon(t.vat || 0)}</td>
@@ -1926,6 +1943,7 @@ function openTxModal(editId) {
     document.getElementById('txVat').value = '';
     document.getElementById('txPartner').value = '';
     document.getElementById('txMemo').value = '';
+    document.getElementById('txIsFixed').checked = false;
     document.getElementById('txTaxType').value = 'taxable';
     document.getElementById('txEvidence').value = 'tax-invoice';
     document.getElementById('txCard').value = '';
@@ -1964,6 +1982,7 @@ function openTxModal(editId) {
       toggleCardSelect();
       if (t.card) document.getElementById('txCard').value = t.card;
       if (t.bank) document.getElementById('txBank').value = t.bank;
+      document.getElementById('txIsFixed').checked = !!t.isFixed;
     }
   }
   toggleSalaryFields();
@@ -2171,7 +2190,8 @@ function saveTx() {
       card: document.getElementById('txEvidence').value === 'card' ? document.getElementById('txCard').value : '',
       bank: document.getElementById('txEvidence').value === 'bank' ? document.getElementById('txBank').value : '',
       sector: document.getElementById('txSector').value,
-      memo: document.getElementById('txMemo').value
+      memo: document.getElementById('txMemo').value,
+      isFixed: document.getElementById('txIsFixed').checked
     };
     const editId = document.getElementById('txEditId').value;
     if (editId) {
@@ -4491,7 +4511,7 @@ async function autoSyncTx(tx) {
       category: tx.category || '', partner: tx.partner || '',
       amount: tx.amount || 0, vat: tx.vat || 0,
       tax_type: tx.taxType || 'taxable', evidence: tx.evidence || 'none',
-      card: tx.card || '', bank: tx.bank || '', sector: tx.sector || '', memo: tx.memo || '',
+      card: tx.card || '', bank: tx.bank || '', sector: tx.sector || '', memo: tx.memo || '', is_fixed: !!tx.isFixed,
       salary_gross: tx.salaryGross || 0, salary_tax_withheld: tx.salaryTaxWithheld || 0,
       salary_local_withheld: tx.salaryLocalWithheld || 0,
       salary_pension: tx.salaryPension || 0, salary_health: tx.salaryHealth || 0,
