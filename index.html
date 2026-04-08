@@ -1587,18 +1587,23 @@ function renderDashboard() {
   const totalVatIn = txs.filter(t => t.type === 'expense').reduce((s, t) => s + (t.vat || 0), 0);
   const profit = totalIncome - totalExpense;
 
-  // 고정비 계산 (최근 달 기준으로 월 고정비 추정)
-  const fixedTxs = txs.filter(t => t.type === 'expense' && t.isFixed);
-  const fixedTotal = fixedTxs.reduce((s, t) => s + t.amount, 0);
+  // 고정비 계산 — 전체 보기: 가장 최근 달 기준, 월별 보기: 해당 월 합계
+  let fixedTxsForCard;
+  if (month === 'all') {
+    // 가장 최근 달의 고정비만 표시
+    const allFixedTxs = txs.filter(t => t.type === 'expense' && t.isFixed);
+    const latestMonth = allFixedTxs.length > 0 ? Math.max(...allFixedTxs.map(t => new Date(t.date).getMonth() + 1)) : 0;
+    fixedTxsForCard = allFixedTxs.filter(t => new Date(t.date).getMonth() + 1 === latestMonth);
+  } else {
+    fixedTxsForCard = txs.filter(t => t.type === 'expense' && t.isFixed);
+  }
+  const fixedMonthly = fixedTxsForCard.reduce((s, t) => s + t.amount, 0);
   const fixedByCat = {};
-  fixedTxs.forEach(t => {
+  fixedTxsForCard.forEach(t => {
     const cat = t.category || '미분류';
     fixedByCat[cat] = (fixedByCat[cat] || 0) + t.amount;
   });
-  const fixedCount = fixedTxs.length;
-  const fixedMonths = month === 'all' ? new Set(fixedTxs.map(t => new Date(t.date).getMonth() + 1)).size || 1 : 1;
-  const fixedMonthly = Math.round(fixedTotal / fixedMonths);
-  const fixedDetail = Object.entries(fixedByCat).sort((a,b) => b[1] - a[1]).slice(0, 5).map(([c, a]) => `${c} ${fmtWon(Math.round(a / fixedMonths))}`).join('<br>');
+  const fixedDetail = Object.entries(fixedByCat).sort((a,b) => b[1] - a[1]).slice(0, 5).map(([c, a]) => `${c} ${fmtWon(a)}`).join('<br>');
 
   document.getElementById('dashCards').innerHTML = `
     <div class="card"><div class="card-label">총 매출</div><div class="card-value income">${fmtWon(totalIncome)}</div><div class="card-sub">부가세 ${fmtWon(totalVatOut)}</div></div>
