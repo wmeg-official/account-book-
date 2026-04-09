@@ -321,6 +321,21 @@ tbody tr:hover { background: #f8fafc; }
               <span class="bep-val" id="bepOtherFixedVal">50만</span>
             </div>
           </div>
+        </div>
+
+        <!-- 메뉴 설정 -->
+        <div class="card">
+          <h4 style="margin-bottom:4px;">메뉴 설정</h4>
+          <p style="font-size:11px;color:var(--text-light);margin:0 0 14px;">판매가/원가 모두 부가세 제외 금액</p>
+          <div id="bepMenuList"></div>
+          <button class="btn btn-outline" style="margin-top:12px;width:100%;" onclick="addBepMenu()">+ 메뉴 추가</button>
+        </div>
+      </div>
+
+      <!-- 영업 조건 -->
+      <div class="card" style="margin-top:16px;">
+        <h4 style="margin-bottom:14px;">영업 조건</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
           <div class="bep-slider-group">
             <label>월 영업일수</label>
             <div class="bep-slider-row">
@@ -336,20 +351,50 @@ tbody tr:hover { background: #f8fafc; }
             </div>
           </div>
         </div>
-
-        <!-- 메뉴 설정 -->
-        <div class="card">
-          <h4 style="margin-bottom:4px;">메뉴 설정</h4>
-          <p style="font-size:11px;color:var(--text-light);margin:0 0 14px;">판매가/원가 모두 부가세 제외 금액</p>
-          <div id="bepMenuList"></div>
-          <button class="btn btn-outline" style="margin-top:12px;width:100%;" onclick="addBepMenu()">+ 메뉴 추가</button>
-        </div>
       </div>
 
       <!-- 인사이트 -->
       <div class="card" style="margin-top:16px;">
         <h4 style="margin-bottom:8px;">Insight</h4>
         <p id="bepInsight" style="font-size:13px;color:var(--text-light);line-height:1.6;margin:0;"></p>
+      </div>
+
+      <!-- ROI 계산 -->
+      <div class="card" style="margin-top:16px;">
+        <h4 style="margin-bottom:4px;">ROI 분석 (투자금 회수)</h4>
+        <p style="font-size:11px;color:var(--text-light);margin:0 0 14px;">총 투자금 대비 현금흐름으로 회수 기간을 계산합니다 (감가상각비는 비현금 비용이므로 다시 더함)</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+          <div class="form-group">
+            <label>총 투자금 (만원)</label>
+            <input type="number" id="roiInvestment" value="5000" min="0" step="100" oninput="calcROI();saveBepSettings()" placeholder="초기 투자 총액">
+          </div>
+          <div class="form-group">
+            <label>월 감가상각비 (만원) <span style="font-size:11px;color:var(--text-light);">기타 고정비에 포함된 금액</span></label>
+            <input type="number" id="roiDepreciation" value="0" min="0" step="1" oninput="calcROI();saveBepSettings()" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label>월 예상 매출 (만원) <span style="font-size:11px;color:var(--text-light);">비워두면 장부 데이터 사용</span></label>
+            <input type="number" id="roiMonthlySales" min="0" step="10" oninput="calcROI();saveBepSettings()" placeholder="자동 (장부 기준)">
+          </div>
+        </div>
+        <div class="cards" id="roiCards">
+          <div class="card"><div class="card-label">월 현금흐름</div><div class="card-value" id="roiMonthProfit">0원</div><div class="card-sub" id="roiMonthProfitSub"></div></div>
+          <div class="card"><div class="card-label">연 ROI</div><div class="card-value" id="roiPercent">0%</div></div>
+          <div class="card"><div class="card-label">투자금 회수 기간</div><div class="card-value" id="roiPayback">-</div></div>
+        </div>
+        <div id="roiProgressWrap" style="margin-top:12px;">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-light);margin-bottom:4px;">
+            <span>투자금 회수 진행률</span>
+            <span id="roiProgressPct">0%</span>
+          </div>
+          <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden;">
+            <div id="roiProgressBar" style="height:100%;border-radius:4px;transition:width 0.3s;width:0%;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-light);margin-top:4px;">
+            <span>누적 순이익: <b id="roiAccumProfit">0원</b></span>
+            <span>투자금: <b id="roiInvestmentDisplay">0원</b></span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1714,6 +1759,9 @@ function renderBEP() {
     document.getElementById('bepOtherFixed').value = saved.otherFixed ?? 50;
     document.getElementById('bepDaysOpen').value = saved.daysOpen ?? 26;
     document.getElementById('bepHours').value = saved.hours ?? 10;
+    document.getElementById('roiInvestment').value = saved.roiInvestment ?? 5000;
+    document.getElementById('roiDepreciation').value = saved.roiDepreciation ?? 0;
+    if (saved.roiMonthlySales) document.getElementById('roiMonthlySales').value = saved.roiMonthlySales;
     if (saved.menus && saved.menus.length > 0) bepMenus = saved.menus;
   }
   renderBepMenuList();
@@ -1733,6 +1781,9 @@ function saveBepSettings() {
       otherFixed: +document.getElementById('bepOtherFixed').value,
       daysOpen: +document.getElementById('bepDaysOpen').value,
       hours: +document.getElementById('bepHours').value,
+      roiInvestment: +document.getElementById('roiInvestment').value || 0,
+      roiDepreciation: +document.getElementById('roiDepreciation').value || 0,
+      roiMonthlySales: +document.getElementById('roiMonthlySales').value || 0,
       menus: bepMenus
     };
     if (!DATA.bepSettings) DATA.bepSettings = {};
@@ -1868,6 +1919,90 @@ function calcBEP() {
   });
 
   saveBepSettings();
+  calcROI();
+}
+
+function calcROI() {
+  const investmentMan = parseInt(document.getElementById('roiInvestment').value) || 0;
+  const investment = investmentMan * 10000;
+  const customSalesMan = document.getElementById('roiMonthlySales').value;
+
+  // 월 매출: 직접 입력 or 장부 데이터
+  let monthlySales;
+  if (customSalesMan && parseInt(customSalesMan) > 0) {
+    monthlySales = parseInt(customSalesMan) * 10000;
+  } else {
+    // 장부에서 최근 달 매출
+    const now = new Date();
+    const incomeTxs = bizTransactions().filter(t => t.type === 'income');
+    let curM = now.getMonth() + 1, curY = now.getFullYear();
+    let mTxs = incomeTxs.filter(t => { const d = new Date(t.date); return d.getFullYear() === curY && d.getMonth() + 1 === curM; });
+    if (mTxs.length === 0 && curM > 1) {
+      curM--;
+      mTxs = incomeTxs.filter(t => { const d = new Date(t.date); return d.getFullYear() === curY && d.getMonth() + 1 === curM; });
+    }
+    monthlySales = mTxs.reduce((s, t) => s + t.amount, 0);
+  }
+
+  // 월 고정비 (BEP 슬라이더 값)
+  const rent = +document.getElementById('bepRent').value;
+  const utilities = +document.getElementById('bepUtilities').value;
+  const labor = +document.getElementById('bepLabor').value;
+  const otherFixed = +document.getElementById('bepOtherFixed').value;
+  const totalFixed = (rent + utilities + labor + otherFixed) * 10000;
+
+  // 가중 마진율로 변동비 계산
+  const totalRatio = bepMenus.reduce((s, m) => s + m.ratio, 0) || 1;
+  let weightedMarginPct = 0;
+  bepMenus.forEach(m => {
+    const r = m.ratio / totalRatio;
+    const mPct = m.price > 0 ? ((m.price - m.cost) / m.price) : 0;
+    weightedMarginPct += r * mPct;
+  });
+
+  // 월 순이익 = 매출 × 마진율 - 고정비
+  const monthProfit = Math.round(monthlySales * weightedMarginPct - totalFixed);
+  // 월 현금흐름 = 순이익 + 감가상각비 (비현금 비용이므로 다시 더함)
+  const depreciation = (parseInt(document.getElementById('roiDepreciation').value) || 0) * 10000;
+  const monthCashFlow = monthProfit + depreciation;
+  const yearCashFlow = monthCashFlow * 12;
+  const roiPct = investment > 0 ? (yearCashFlow / investment) * 100 : 0;
+  const paybackMonths = monthCashFlow > 0 ? investment / monthCashFlow : 0;
+
+  document.getElementById('roiMonthProfit').textContent = fmtWon(monthCashFlow);
+  document.getElementById('roiMonthProfit').className = 'card-value ' + (monthCashFlow >= 0 ? 'income' : 'expense');
+  document.getElementById('roiMonthProfitSub').textContent = depreciation > 0 ? `순이익 ${fmtWon(monthProfit)} + 감가상각 ${fmtWon(depreciation)}` : '';
+
+  const roiEl = document.getElementById('roiPercent');
+  roiEl.textContent = roiPct.toFixed(1) + '%';
+  roiEl.className = 'card-value ' + (roiPct >= 30 ? 'income' : roiPct >= 0 ? 'primary' : 'expense');
+
+  const paybackEl = document.getElementById('roiPayback');
+  if (monthCashFlow <= 0) {
+    paybackEl.textContent = '회수 불가';
+    paybackEl.className = 'card-value expense';
+  } else {
+    const years = Math.floor(paybackMonths / 12);
+    const months = Math.round(paybackMonths % 12);
+    paybackEl.textContent = years > 0 ? `${years}년 ${months}개월` : `${months}개월`;
+    paybackEl.className = 'card-value ' + (paybackMonths <= 24 ? 'income' : paybackMonths <= 36 ? 'primary' : 'expense');
+  }
+
+  // 누적 순이익 진행률 (사업 시작부터 현재까지)
+  const allIncomeTxs = bizTransactions().filter(t => t.type === 'income');
+  const allExpenseTxs = bizTransactions().filter(t => t.type === 'expense');
+  const totalIncome = allIncomeTxs.reduce((s, t) => s + t.amount, 0);
+  const totalExpense = allExpenseTxs.reduce((s, t) => s + t.amount, 0);
+  const accumProfit = totalIncome - totalExpense;
+  const progressPct = investment > 0 ? Math.min((accumProfit / investment) * 100, 100) : 0;
+
+  document.getElementById('roiInvestmentDisplay').textContent = fmtWon(investment);
+  document.getElementById('roiAccumProfit').textContent = fmtWon(accumProfit);
+  document.getElementById('roiProgressPct').textContent = progressPct.toFixed(1) + '%';
+
+  const bar = document.getElementById('roiProgressBar');
+  bar.style.width = Math.max(progressPct, 0) + '%';
+  bar.style.background = progressPct >= 100 ? 'var(--income)' : progressPct >= 50 ? 'var(--primary)' : 'var(--expense)';
 }
 
 // ========== DASHBOARD ==========
