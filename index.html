@@ -315,7 +315,14 @@ tbody tr:hover { background: #f8fafc; }
             </div>
           </div>
           <div class="bep-slider-group">
-            <label>기타 고정비 <span style="font-size:11px;color:var(--text-light);">(보험/감가/구독)</span></label>
+            <label>감가상각비</label>
+            <div class="bep-slider-row">
+              <input type="range" id="bepDepreciation" min="0" max="200" step="5" value="0" oninput="calcBEP()">
+              <span class="bep-val" id="bepDepreciationVal">0만</span>
+            </div>
+          </div>
+          <div class="bep-slider-group">
+            <label>기타 고정비 <span style="font-size:11px;color:var(--text-light);">(보험/구독 등)</span></label>
             <div class="bep-slider-row">
               <input type="range" id="bepOtherFixed" min="0" max="300" step="10" value="50" oninput="calcBEP()">
               <span class="bep-val" id="bepOtherFixedVal">50만</span>
@@ -369,8 +376,8 @@ tbody tr:hover { background: #f8fafc; }
             <input type="number" id="roiInvestment" value="5000" min="0" step="100" oninput="calcROI();saveBepSettings()" placeholder="초기 투자 총액">
           </div>
           <div class="form-group">
-            <label>월 감가상각비 (만원) <span style="font-size:11px;color:var(--text-light);">기타 고정비에 포함된 금액</span></label>
-            <input type="number" id="roiDepreciation" value="0" min="0" step="1" oninput="calcROI();saveBepSettings()" placeholder="0">
+            <label>월 감가상각비 (만원) <span style="font-size:11px;color:var(--text-light);">위 고정비 슬라이더에서 자동 반영</span></label>
+            <input type="number" id="roiDepreciation" value="0" readonly style="background:var(--bg);color:var(--text-light);">
           </div>
           <div class="form-group">
             <label>월 예상 매출 (만원) <span style="font-size:11px;color:var(--text-light);">비워두면 장부 데이터 사용</span></label>
@@ -1757,10 +1764,10 @@ function renderBEP() {
     document.getElementById('bepUtilities').value = saved.utilities ?? 30;
     document.getElementById('bepLabor').value = saved.labor ?? 0;
     document.getElementById('bepOtherFixed').value = saved.otherFixed ?? 50;
+    document.getElementById('bepDepreciation').value = saved.depreciation ?? 0;
     document.getElementById('bepDaysOpen').value = saved.daysOpen ?? 26;
     document.getElementById('bepHours').value = saved.hours ?? 10;
     document.getElementById('roiInvestment').value = saved.roiInvestment ?? 5000;
-    document.getElementById('roiDepreciation').value = saved.roiDepreciation ?? 0;
     if (saved.roiMonthlySales) document.getElementById('roiMonthlySales').value = saved.roiMonthlySales;
     if (saved.menus && saved.menus.length > 0) bepMenus = saved.menus;
   }
@@ -1779,10 +1786,10 @@ function saveBepSettings() {
       utilities: +document.getElementById('bepUtilities').value,
       labor: +document.getElementById('bepLabor').value,
       otherFixed: +document.getElementById('bepOtherFixed').value,
+      depreciation: +document.getElementById('bepDepreciation').value,
       daysOpen: +document.getElementById('bepDaysOpen').value,
       hours: +document.getElementById('bepHours').value,
       roiInvestment: +document.getElementById('roiInvestment').value || 0,
-      roiDepreciation: +document.getElementById('roiDepreciation').value || 0,
       roiMonthlySales: +document.getElementById('roiMonthlySales').value || 0,
       menus: bepMenus
     };
@@ -1830,6 +1837,7 @@ function calcBEP() {
   const rent = +document.getElementById('bepRent').value;
   const utilities = +document.getElementById('bepUtilities').value;
   const labor = +document.getElementById('bepLabor').value;
+  const depreciationMan = +document.getElementById('bepDepreciation').value;
   const otherFixed = +document.getElementById('bepOtherFixed').value;
   const daysOpen = +document.getElementById('bepDaysOpen').value;
   const hours = +document.getElementById('bepHours').value;
@@ -1837,11 +1845,15 @@ function calcBEP() {
   document.getElementById('bepRentVal').textContent = rent + '만';
   document.getElementById('bepUtilitiesVal').textContent = utilities + '만';
   document.getElementById('bepLaborVal').textContent = labor + '만';
+  document.getElementById('bepDepreciationVal').textContent = depreciationMan + '만';
   document.getElementById('bepOtherFixedVal').textContent = otherFixed + '만';
   document.getElementById('bepDaysOpenVal').textContent = daysOpen + '일';
   document.getElementById('bepHoursVal').textContent = hours + '시간';
 
-  const totalFixed = (rent + utilities + labor + otherFixed) * 10000;
+  // ROI 감가상각비 자동 연동
+  document.getElementById('roiDepreciation').value = depreciationMan;
+
+  const totalFixed = (rent + utilities + labor + depreciationMan + otherFixed) * 10000;
   const totalRatio = bepMenus.reduce((s, m) => s + m.ratio, 0) || 1;
 
   let weightedAvgPrice = 0, weightedAvgMargin = 0;
@@ -1948,8 +1960,9 @@ function calcROI() {
   const rent = +document.getElementById('bepRent').value;
   const utilities = +document.getElementById('bepUtilities').value;
   const labor = +document.getElementById('bepLabor').value;
+  const depMan = +document.getElementById('bepDepreciation').value;
   const otherFixed = +document.getElementById('bepOtherFixed').value;
-  const totalFixed = (rent + utilities + labor + otherFixed) * 10000;
+  const totalFixed = (rent + utilities + labor + depMan + otherFixed) * 10000;
 
   // 가중 마진율로 변동비 계산
   const totalRatio = bepMenus.reduce((s, m) => s + m.ratio, 0) || 1;
@@ -1963,7 +1976,7 @@ function calcROI() {
   // 월 순이익 = 매출 × 마진율 - 고정비
   const monthProfit = Math.round(monthlySales * weightedMarginPct - totalFixed);
   // 월 현금흐름 = 순이익 + 감가상각비 (비현금 비용이므로 다시 더함)
-  const depreciation = (parseInt(document.getElementById('roiDepreciation').value) || 0) * 10000;
+  const depreciation = depMan * 10000;
   const monthCashFlow = monthProfit + depreciation;
   const yearCashFlow = monthCashFlow * 12;
   const roiPct = investment > 0 ? (yearCashFlow / investment) * 100 : 0;
