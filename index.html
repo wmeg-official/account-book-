@@ -802,6 +802,13 @@ tbody tr:hover { background: #f8fafc; }
         </div>
 
         <h5 style="margin:16px 0 8px; color:var(--text-light);">공급받는자 (거래처)</h5>
+        <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;">
+          <select id="stmtBuyerSelect" onchange="onBuyerSelect()" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;">
+            <option value="">-- 저장된 거래처 선택 --</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="saveCurrentBuyer()" title="현재 거래처 저장">💾 저장</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteSelectedBuyer()" title="선택 거래처 삭제">🗑️</button>
+        </div>
         <div class="form-grid">
           <div class="form-group">
             <label>상호 *</label>
@@ -848,6 +855,25 @@ tbody tr:hover { background: #f8fafc; }
         <div class="data-actions" style="margin-top:20px;">
           <button class="btn btn-primary" onclick="previewStatement()">미리보기</button>
           <button class="btn btn-outline" onclick="resetStatement()">초기화</button>
+        </div>
+      </div>
+
+      <div class="card" id="savedStmtCard" style="display:none;">
+        <h4 style="margin-bottom:12px;">📋 발행 내역</h4>
+        <div class="table-wrap">
+          <table style="width:100%;font-size:13px;">
+            <thead>
+              <tr style="background:#f8fafc;">
+                <th style="padding:10px 12px;">발행일</th>
+                <th style="padding:10px 12px;">번호</th>
+                <th style="padding:10px 12px;">거래처</th>
+                <th style="padding:10px 12px;text-align:right;">합계금액</th>
+                <th style="padding:10px 12px;">구분</th>
+                <th style="padding:10px 12px;width:120px;">관리</th>
+              </tr>
+            </thead>
+            <tbody id="savedStmtBody"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -1480,6 +1506,8 @@ async function loadDataFromServer() {
       yearendInputs, incomeTaxInputs,
       bepSettings: myPersonId && settingsMap['bep_' + myPersonId] ? { [myPersonId]: settingsMap['bep_' + myPersonId] } : {},
       roiSettings: myPersonId && settingsMap['roi_' + myPersonId] ? { [myPersonId]: settingsMap['roi_' + myPersonId] } : {},
+      savedBuyers: myPersonId && settingsMap['buyers_' + myPersonId] ? settingsMap['buyers_' + myPersonId] : [],
+      savedStatements: myPersonId && settingsMap['stmts_' + myPersonId] ? settingsMap['stmts_' + myPersonId] : [],
       currentBiz: settingsMap.currentBiz && myBizIds.includes(settingsMap.currentBiz) ? settingsMap.currentBiz : (businesses[0]?.id || ''),
       transactions
     };
@@ -5531,13 +5559,164 @@ async function confirmCoupangUpload() {
 
 // ========== 거래명세서 ==========
 let stmtItemCount = 0;
+let currentStmtId = null;
 
 function renderStatement() {
-  // 초기: 오늘 날짜, 품목 1개
   if (!document.getElementById('stmtDate').value) {
     document.getElementById('stmtDate').value = new Date().toISOString().slice(0, 10);
   }
   if (stmtItemCount === 0) addStmtItem();
+  populateBuyerSelect();
+  renderSavedStatements();
+}
+
+// ── 거래처 저장/불러오기 ──
+function populateBuyerSelect() {
+  const sel = document.getElementById('stmtBuyerSelect');
+  const val = sel.value;
+  sel.innerHTML = '<option value="">-- 저장된 거래처 선택 --</option>';
+  (DATA.savedBuyers || []).forEach(b => {
+    sel.innerHTML += `<option value="${b.id}">${b.name}${b.regNo ? ' (' + b.regNo + ')' : ''}</option>`;
+  });
+  sel.value = val;
+}
+
+function onBuyerSelect() {
+  const sel = document.getElementById('stmtBuyerSelect');
+  const buyer = (DATA.savedBuyers || []).find(b => b.id === sel.value);
+  if (!buyer) return;
+  document.getElementById('stmtBuyerName').value = buyer.name || '';
+  document.getElementById('stmtBuyerRegNo').value = buyer.regNo || '';
+  document.getElementById('stmtBuyerOwner').value = buyer.owner || '';
+  document.getElementById('stmtBuyerAddr').value = buyer.addr || '';
+}
+
+function saveCurrentBuyer() {
+  const name = document.getElementById('stmtBuyerName').value.trim();
+  if (!name) { alert('상호를 입력하세요.'); return; }
+  if (!DATA.savedBuyers) DATA.savedBuyers = [];
+  const existing = DATA.savedBuyers.find(b => b.name === name);
+  if (existing && !confirm(`"${name}" 거래처가 이미 있습니다. 덮어쓰시겠습니까?`)) return;
+  const buyer = {
+    id: existing ? existing.id : 'buyer_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+    name,
+    regNo: document.getElementById('stmtBuyerRegNo').value.trim(),
+    owner: document.getElementById('stmtBuyerOwner').value.trim(),
+    addr: document.getElementById('stmtBuyerAddr').value.trim()
+  };
+  if (existing) Object.assign(existing, buyer);
+  else DATA.savedBuyers.push(buyer);
+  saveBuyersToDb();
+  populateBuyerSelect();
+  document.getElementById('stmtBuyerSelect').value = buyer.id;
+  alert(`"${name}" 거래처가 저장되었습니다.`);
+}
+
+function deleteSelectedBuyer() {
+  const sel = document.getElementById('stmtBuyerSelect');
+  if (!sel.value) { alert('삭제할 거래처를 선택하세요.'); return; }
+  const buyer = (DATA.savedBuyers || []).find(b => b.id === sel.value);
+  if (!buyer) return;
+  if (!confirm(`"${buyer.name}" 거래처를 삭제하시겠습니까?`)) return;
+  DATA.savedBuyers = DATA.savedBuyers.filter(b => b.id !== buyer.id);
+  saveBuyersToDb();
+  populateBuyerSelect();
+}
+
+let _buyerSaveTimer = null;
+function saveBuyersToDb() {
+  if (_buyerSaveTimer) clearTimeout(_buyerSaveTimer);
+  _buyerSaveTimer = setTimeout(async () => {
+    const pid = currentPersonId();
+    if (!pid) return;
+    try {
+      await sb.from('app_settings').upsert({ key: 'buyers_' + pid, value: DATA.savedBuyers || [] }, { onConflict: 'key' });
+    } catch (e) { console.error('Buyers save error:', e); }
+  }, 800);
+}
+
+// ── 명세서 자동저장/불러오기 ──
+function autoSaveStatement(data) {
+  if (!DATA.savedStatements) DATA.savedStatements = [];
+  if (currentStmtId) {
+    const idx = DATA.savedStatements.findIndex(s => s.id === currentStmtId);
+    if (idx >= 0) { DATA.savedStatements[idx] = { ...data, id: currentStmtId }; }
+    else { DATA.savedStatements.unshift(data); }
+  } else {
+    DATA.savedStatements.unshift(data);
+    currentStmtId = data.id;
+  }
+  if (DATA.savedStatements.length > 100) DATA.savedStatements = DATA.savedStatements.slice(0, 100);
+  saveStatementsToDb();
+  renderSavedStatements();
+}
+
+function renderSavedStatements() {
+  const card = document.getElementById('savedStmtCard');
+  const tbody = document.getElementById('savedStmtBody');
+  const bizId = currentBizId();
+  const stmts = (DATA.savedStatements || []).filter(s => s.bizId === bizId);
+  if (stmts.length === 0) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  tbody.innerHTML = stmts.map(s => `<tr>
+    <td style="padding:10px 12px;">${s.date}</td>
+    <td style="padding:10px 12px;">${s.no || '-'}</td>
+    <td style="padding:10px 12px;">${s.buyer?.name || '-'}</td>
+    <td style="padding:10px 12px;text-align:right;font-weight:600;">${(s.totalAmount || 0).toLocaleString()}원</td>
+    <td style="padding:10px 12px;">${s.type || ''}</td>
+    <td style="padding:10px 12px;">
+      <button class="btn btn-outline btn-sm" onclick="loadSavedStatement('${s.id}')" style="padding:2px 8px;margin-right:4px;">불러오기</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteSavedStatement('${s.id}')" style="padding:2px 8px;">삭제</button>
+    </td>
+  </tr>`).join('');
+}
+
+function loadSavedStatement(id) {
+  const s = (DATA.savedStatements || []).find(st => st.id === id);
+  if (!s) return;
+  currentStmtId = s.id;
+  document.getElementById('stmtDate').value = s.date || '';
+  document.getElementById('stmtNo').value = s.no || '';
+  document.getElementById('stmtType').value = s.type || '청구';
+  document.getElementById('stmtBuyerName').value = s.buyer?.name || '';
+  document.getElementById('stmtBuyerRegNo').value = s.buyer?.regNo || '';
+  document.getElementById('stmtBuyerOwner').value = s.buyer?.owner || '';
+  document.getElementById('stmtBuyerAddr').value = s.buyer?.addr || '';
+  document.getElementById('stmtMemo').value = s.memo || '';
+  document.getElementById('stmtItemsBody').innerHTML = '';
+  stmtItemCount = 0;
+  (s.items || []).forEach(item => {
+    addStmtItem();
+    const row = document.getElementById('stmtItemsBody').lastElementChild;
+    const textInputs = row.querySelectorAll('input[type="text"]');
+    const numInputs = row.querySelectorAll('input[type="number"]');
+    textInputs[0].value = item.name || '';
+    textInputs[1].value = item.spec || '';
+    numInputs[0].value = item.qty || 1;
+    numInputs[1].value = item.price || 0;
+    calcStmtRow(numInputs[0]);
+  });
+  window.scrollTo({ top: document.getElementById('page-statement').offsetTop, behavior: 'smooth' });
+}
+
+function deleteSavedStatement(id) {
+  if (!confirm('이 명세서를 삭제하시겠습니까?')) return;
+  DATA.savedStatements = (DATA.savedStatements || []).filter(s => s.id !== id);
+  if (currentStmtId === id) currentStmtId = null;
+  saveStatementsToDb();
+  renderSavedStatements();
+}
+
+let _stmtSaveTimer = null;
+function saveStatementsToDb() {
+  if (_stmtSaveTimer) clearTimeout(_stmtSaveTimer);
+  _stmtSaveTimer = setTimeout(async () => {
+    const pid = currentPersonId();
+    if (!pid) return;
+    try {
+      await sb.from('app_settings').upsert({ key: 'stmts_' + pid, value: DATA.savedStatements || [] }, { onConflict: 'key' });
+    } catch (e) { console.error('Statements save error:', e); }
+  }, 800);
 }
 
 function addStmtItem() {
@@ -5692,6 +5871,18 @@ function previewStatement() {
 
   document.getElementById('stmtPrintArea').innerHTML = html;
   document.getElementById('stmtModal').classList.add('show');
+
+  autoSaveStatement({
+    id: currentStmtId || ('stmt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)),
+    bizId: currentBizId(),
+    date, no,
+    type: document.getElementById('stmtType').value,
+    buyer: { name: buyerName, regNo: buyerRegNo, owner: buyerOwner, addr: buyerAddr },
+    items,
+    totalSupply, totalVat, totalAmount,
+    memo,
+    savedAt: new Date().toISOString()
+  });
 }
 
 function closeStmtModal() {
@@ -5704,8 +5895,11 @@ function printStatement() {
 
 function resetStatement() {
   if (!confirm('거래명세서 내용을 초기화하시겠습니까?')) return;
+  currentStmtId = null;
   document.getElementById('stmtDate').value = new Date().toISOString().slice(0, 10);
   document.getElementById('stmtNo').value = '';
+  document.getElementById('stmtType').value = '청구';
+  document.getElementById('stmtBuyerSelect').value = '';
   document.getElementById('stmtBuyerName').value = '';
   document.getElementById('stmtBuyerRegNo').value = '';
   document.getElementById('stmtBuyerOwner').value = '';
