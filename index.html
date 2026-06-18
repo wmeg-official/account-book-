@@ -799,6 +799,13 @@ tbody tr:hover { background: #f8fafc; }
               <option value="영수">영수</option>
             </select>
           </div>
+          <div class="form-group">
+            <label>언어</label>
+            <select id="stmtLang">
+              <option value="ko">한국어</option>
+              <option value="en">English</option>
+            </select>
+          </div>
         </div>
 
         <h5 style="margin:16px 0 8px; color:var(--text-light);">공급받는자 (거래처)</h5>
@@ -5678,6 +5685,7 @@ function loadSavedStatement(id) {
   document.getElementById('stmtDate').value = s.date || '';
   document.getElementById('stmtNo').value = s.no || '';
   document.getElementById('stmtType').value = s.type || '청구';
+  document.getElementById('stmtLang').value = s.lang || 'ko';
   document.getElementById('stmtBuyerName').value = s.buyer?.name || '';
   document.getElementById('stmtBuyerRegNo').value = s.buyer?.regNo || '';
   document.getElementById('stmtBuyerOwner').value = s.buyer?.owner || '';
@@ -5790,84 +5798,129 @@ function previewStatement() {
   const totalAmount = totalSupply + totalVat;
 
   const sectors = (biz.sectors || []).map(s => s.category).join(', ') || '';
-  const fmtDate = date.replace(/-/g, '. ') + '.';
+  const lang = document.getElementById('stmtLang').value;
+  const isEn = lang === 'en';
+  const fmtDate = isEn ? date : date.replace(/-/g, '. ') + '.';
+  const stmtTypeVal = document.getElementById('stmtType').value;
 
-  // 빈 행 채우기 (최소 10행)
   const padded = [...items];
   while (padded.length < 10) padded.push({ name: '', spec: '', qty: '', price: '', supply: '', vat: '' });
 
-  let html = `<div class="stmt">
-    <div class="stmt-title">거 래 명 세 서</div>
-    ${no ? `<div style="text-align:right;font-size:12px;margin-bottom:8px;">No. ${no}</div>` : ''}
+  const itemRows = padded.map((item, i) => `<tr>
+    <td class="center">${item.name ? i + 1 : ''}</td>
+    <td class="left">${item.name}</td>
+    <td class="center">${item.spec}</td>
+    <td>${item.qty !== '' ? (typeof item.qty === 'number' ? item.qty.toLocaleString() : item.qty) : ''}</td>
+    <td>${item.price !== '' ? (typeof item.price === 'number' ? item.price.toLocaleString() : item.price) : ''}</td>
+    <td>${item.supply !== '' ? (typeof item.supply === 'number' ? item.supply.toLocaleString() : item.supply) : ''}</td>
+    <td>${item.vat !== '' ? (typeof item.vat === 'number' ? item.vat.toLocaleString() : item.vat) : ''}</td>
+  </tr>`).join('');
 
-    <div class="stmt-header">
-      <table class="stmt-party">
-        <tr><td class="party-label" colspan="4">공 급 자</td></tr>
-        <tr><th>등록번호</th><td colspan="3">${biz.regNo || '274-50-01075'}</td></tr>
-        <tr><th>상 호</th><td>${biz.name}</td><th>대 표</th><td>${biz.owner || '박재형'}</td></tr>
-        <tr><th>업 태</th><td colspan="3">${sectors}</td></tr>
-      </table>
-      <table class="stmt-party">
-        <tr><td class="party-label" colspan="4">공 급 받 는 자</td></tr>
-        <tr><th>등록번호</th><td colspan="3">${buyerRegNo}</td></tr>
-        <tr><th>상 호</th><td>${buyerName}</td><th>대 표</th><td>${buyerOwner}</td></tr>
-        <tr><th>주 소</th><td colspan="3">${buyerAddr}</td></tr>
-      </table>
-    </div>
-
-    <div style="text-align:right;font-size:13px;margin-bottom:8px;">
-      <b>작성일자:</b> ${fmtDate} &nbsp;&nbsp;
-      <b>합계금액: ₩${totalAmount.toLocaleString()}</b>
-    </div>
-
-    <table class="stmt-items">
-      <thead>
-        <tr>
-          <th style="width:30px;">No</th>
-          <th>품 명</th>
-          <th style="width:70px;">규 격</th>
-          <th style="width:50px;">수 량</th>
-          <th style="width:90px;">단 가</th>
-          <th style="width:100px;">공급가액</th>
-          <th style="width:80px;">세 액</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${padded.map((item, i) => `<tr>
-          <td class="center">${item.name ? i + 1 : ''}</td>
-          <td class="left">${item.name}</td>
-          <td class="center">${item.spec}</td>
-          <td>${item.qty !== '' ? (typeof item.qty === 'number' ? item.qty.toLocaleString() : item.qty) : ''}</td>
-          <td>${item.price !== '' ? (typeof item.price === 'number' ? item.price.toLocaleString() : item.price) : ''}</td>
-          <td>${item.supply !== '' ? (typeof item.supply === 'number' ? item.supply.toLocaleString() : item.supply) : ''}</td>
-          <td>${item.vat !== '' ? (typeof item.vat === 'number' ? item.vat.toLocaleString() : item.vat) : ''}</td>
-        </tr>`).join('')}
-        <tr class="stmt-total">
-          <td class="center" colspan="2">합 계</td>
-          <td></td>
-          <td></td>
-          <td></td>
-          <td>${totalSupply.toLocaleString()}</td>
-          <td>${totalVat.toLocaleString()}</td>
-        </tr>
-      </tbody>
-    </table>
-
-    ${memo ? `<div class="stmt-footer" style="margin-top:12px;"><b>비고:</b> ${memo}</div>` : ''}
-    <div class="stmt-footer" style="margin-top:24px;text-align:center;">
-      위 금액을 ${document.getElementById('stmtType').value} 함.
-    </div>
-    <div style="display:flex;justify-content:space-between;margin-top:32px;font-size:13px;">
-      <div style="text-align:center;width:45%;">
-        <div style="margin-bottom:40px;">공급자</div>
-        <div style="border-top:1px solid #999;padding-top:4px;">${biz.name}</div>
+  let html;
+  if (isEn) {
+    const typeEn = stmtTypeVal === '영수' ? 'RECEIVED' : 'BILLED';
+    html = `<div class="stmt">
+      <div class="stmt-title">TRANSACTION STATEMENT</div>
+      ${no ? `<div style="text-align:right;font-size:12px;margin-bottom:8px;">No. ${no}</div>` : ''}
+      <div class="stmt-header">
+        <table class="stmt-party">
+          <tr><td class="party-label" colspan="4">SUPPLIER</td></tr>
+          <tr><th>Reg. No.</th><td colspan="3">${biz.regNo || '274-50-01075'}</td></tr>
+          <tr><th>Company</th><td>${biz.name}</td><th>Rep.</th><td>${biz.owner || '박재형'}</td></tr>
+          <tr><th>Type</th><td colspan="3">${sectors}</td></tr>
+        </table>
+        <table class="stmt-party">
+          <tr><td class="party-label" colspan="4">BUYER</td></tr>
+          <tr><th>Reg. No.</th><td colspan="3">${buyerRegNo}</td></tr>
+          <tr><th>Company</th><td>${buyerName}</td><th>Rep.</th><td>${buyerOwner}</td></tr>
+          <tr><th>Address</th><td colspan="3">${buyerAddr}</td></tr>
+        </table>
       </div>
-      <div style="text-align:center;width:45%;">
-        <div style="margin-bottom:40px;">공급받는자</div>
-        <div style="border-top:1px solid #999;padding-top:4px;">${buyerName}</div>
+      <div style="text-align:right;font-size:13px;margin-bottom:8px;">
+        <b>Date:</b> ${fmtDate} &nbsp;&nbsp;
+        <b>Total: ₩${totalAmount.toLocaleString()}</b>
       </div>
-    </div>
-  </div>`;
+      <table class="stmt-items">
+        <thead><tr>
+          <th style="width:30px;">No</th><th>Description</th><th style="width:70px;">Spec</th>
+          <th style="width:50px;">Qty</th><th style="width:90px;">Unit Price</th>
+          <th style="width:100px;">Amount</th><th style="width:80px;">VAT</th>
+        </tr></thead>
+        <tbody>
+          ${itemRows}
+          <tr class="stmt-total">
+            <td class="center" colspan="2">TOTAL</td><td></td><td></td><td></td>
+            <td>${totalSupply.toLocaleString()}</td><td>${totalVat.toLocaleString()}</td>
+          </tr>
+        </tbody>
+      </table>
+      ${memo ? `<div class="stmt-footer" style="margin-top:12px;"><b>Remarks:</b> ${memo}</div>` : ''}
+      <div class="stmt-footer" style="margin-top:24px;text-align:center;">
+        The above amount has been ${typeEn}.
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:32px;font-size:13px;">
+        <div style="text-align:center;width:45%;">
+          <div style="margin-bottom:40px;">Supplier</div>
+          <div style="border-top:1px solid #999;padding-top:4px;">${biz.name}</div>
+        </div>
+        <div style="text-align:center;width:45%;">
+          <div style="margin-bottom:40px;">Buyer</div>
+          <div style="border-top:1px solid #999;padding-top:4px;">${buyerName}</div>
+        </div>
+      </div>
+    </div>`;
+  } else {
+    html = `<div class="stmt">
+      <div class="stmt-title">거 래 명 세 서</div>
+      ${no ? `<div style="text-align:right;font-size:12px;margin-bottom:8px;">No. ${no}</div>` : ''}
+      <div class="stmt-header">
+        <table class="stmt-party">
+          <tr><td class="party-label" colspan="4">공 급 자</td></tr>
+          <tr><th>등록번호</th><td colspan="3">${biz.regNo || '274-50-01075'}</td></tr>
+          <tr><th>상 호</th><td>${biz.name}</td><th>대 표</th><td>${biz.owner || '박재형'}</td></tr>
+          <tr><th>업 태</th><td colspan="3">${sectors}</td></tr>
+        </table>
+        <table class="stmt-party">
+          <tr><td class="party-label" colspan="4">공 급 받 는 자</td></tr>
+          <tr><th>등록번호</th><td colspan="3">${buyerRegNo}</td></tr>
+          <tr><th>상 호</th><td>${buyerName}</td><th>대 표</th><td>${buyerOwner}</td></tr>
+          <tr><th>주 소</th><td colspan="3">${buyerAddr}</td></tr>
+        </table>
+      </div>
+      <div style="text-align:right;font-size:13px;margin-bottom:8px;">
+        <b>작성일자:</b> ${fmtDate} &nbsp;&nbsp;
+        <b>합계금액: ₩${totalAmount.toLocaleString()}</b>
+      </div>
+      <table class="stmt-items">
+        <thead><tr>
+          <th style="width:30px;">No</th><th>품 명</th><th style="width:70px;">규 격</th>
+          <th style="width:50px;">수 량</th><th style="width:90px;">단 가</th>
+          <th style="width:100px;">공급가액</th><th style="width:80px;">세 액</th>
+        </tr></thead>
+        <tbody>
+          ${itemRows}
+          <tr class="stmt-total">
+            <td class="center" colspan="2">합 계</td><td></td><td></td><td></td>
+            <td>${totalSupply.toLocaleString()}</td><td>${totalVat.toLocaleString()}</td>
+          </tr>
+        </tbody>
+      </table>
+      ${memo ? `<div class="stmt-footer" style="margin-top:12px;"><b>비고:</b> ${memo}</div>` : ''}
+      <div class="stmt-footer" style="margin-top:24px;text-align:center;">
+        위 금액을 ${stmtTypeVal} 함.
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:32px;font-size:13px;">
+        <div style="text-align:center;width:45%;">
+          <div style="margin-bottom:40px;">공급자</div>
+          <div style="border-top:1px solid #999;padding-top:4px;">${biz.name}</div>
+        </div>
+        <div style="text-align:center;width:45%;">
+          <div style="margin-bottom:40px;">공급받는자</div>
+          <div style="border-top:1px solid #999;padding-top:4px;">${buyerName}</div>
+        </div>
+      </div>
+    </div>`;
+  }
 
   document.getElementById('stmtPrintArea').innerHTML = html;
   document.getElementById('stmtModal').classList.add('show');
@@ -5877,6 +5930,7 @@ function previewStatement() {
     bizId: currentBizId(),
     date, no,
     type: document.getElementById('stmtType').value,
+    lang,
     buyer: { name: buyerName, regNo: buyerRegNo, owner: buyerOwner, addr: buyerAddr },
     items,
     totalSupply, totalVat, totalAmount,
@@ -5899,6 +5953,7 @@ function resetStatement() {
   document.getElementById('stmtDate').value = new Date().toISOString().slice(0, 10);
   document.getElementById('stmtNo').value = '';
   document.getElementById('stmtType').value = '청구';
+  document.getElementById('stmtLang').value = 'ko';
   document.getElementById('stmtBuyerSelect').value = '';
   document.getElementById('stmtBuyerName').value = '';
   document.getElementById('stmtBuyerRegNo').value = '';
