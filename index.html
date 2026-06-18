@@ -5856,14 +5856,15 @@ function previewStatement() {
   while (padded.length < 10) padded.push({ name: '', spec: '', qty: '', price: '', supply: '', vat: '' });
 
   const fmtNum = v => v !== '' ? (typeof v === 'number' ? v.toLocaleString() : v) : '';
+  const fmtCur = v => v !== '' && typeof v === 'number' ? cur + v.toLocaleString() : '';
   const itemRows = padded.map((item, i) => `<tr>
     <td class="center">${item.name ? i + 1 : ''}</td>
     <td class="left">${item.name}</td>
     <td class="center">${item.spec}</td>
     <td>${fmtNum(item.qty)}</td>
-    <td>${fmtNum(item.price)}</td>
-    <td>${fmtNum(item.supply)}</td>
-    ${exempt ? '' : `<td>${fmtNum(item.vat)}</td>`}
+    <td>${fmtCur(item.price)}</td>
+    <td>${fmtCur(item.supply)}</td>
+    ${exempt ? '' : `<td>${fmtCur(item.vat)}</td>`}
   </tr>`).join('');
 
   let html;
@@ -5900,7 +5901,7 @@ function previewStatement() {
           ${itemRows}
           <tr class="stmt-total">
             <td class="center" colspan="2">TOTAL</td><td></td><td></td><td></td>
-            <td>${totalSupply.toLocaleString()}</td>${exempt ? '' : `<td>${totalVat.toLocaleString()}</td>`}
+            <td>${cur}${totalSupply.toLocaleString()}</td>${exempt ? '' : `<td>${cur}${totalVat.toLocaleString()}</td>`}
           </tr>
         </tbody>
       </table>
@@ -5951,7 +5952,7 @@ function previewStatement() {
           ${itemRows}
           <tr class="stmt-total">
             <td class="center" colspan="2">합 계</td><td></td><td></td><td></td>
-            <td>${totalSupply.toLocaleString()}</td>${exempt ? '' : `<td>${totalVat.toLocaleString()}</td>`}
+            <td>${cur}${totalSupply.toLocaleString()}</td>${exempt ? '' : `<td>${cur}${totalVat.toLocaleString()}</td>`}
           </tr>
         </tbody>
       </table>
