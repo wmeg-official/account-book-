@@ -813,6 +813,15 @@ tbody tr:hover { background: #f8fafc; }
               <option value="exempt">면세</option>
             </select>
           </div>
+          <div class="form-group">
+            <label>통화</label>
+            <select id="stmtCurrency">
+              <option value="KRW">₩ 원 (KRW)</option>
+              <option value="USD">$ 달러 (USD)</option>
+              <option value="JPY">¥ 엔 (JPY)</option>
+              <option value="EUR">€ 유로 (EUR)</option>
+            </select>
+          </div>
         </div>
 
         <h5 style="margin:16px 0 8px; color:var(--text-light);">공급받는자 (거래처)</h5>
@@ -5694,6 +5703,7 @@ function loadSavedStatement(id) {
   document.getElementById('stmtType').value = s.type || '청구';
   document.getElementById('stmtLang').value = s.lang || 'ko';
   document.getElementById('stmtTaxType').value = s.taxType || 'taxable';
+  document.getElementById('stmtCurrency').value = s.currency || 'KRW';
   onStmtTaxTypeChange();
   document.getElementById('stmtBuyerName').value = s.buyer?.name || '';
   document.getElementById('stmtBuyerRegNo').value = s.buyer?.regNo || '';
@@ -5760,6 +5770,11 @@ function removeStmtItem(btn) {
 
 function isStmtExempt() {
   return document.getElementById('stmtTaxType').value === 'exempt';
+}
+
+function getStmtCurrency() {
+  const c = document.getElementById('stmtCurrency').value;
+  return { KRW: '₩', USD: '$', JPY: '¥', EUR: '€' }[c] || '₩';
 }
 
 function calcStmtRow(input) {
@@ -5832,8 +5847,10 @@ function previewStatement() {
   const lang = document.getElementById('stmtLang').value;
   const isEn = lang === 'en';
   const exempt = isStmtExempt();
+  const cur = getStmtCurrency();
   const fmtDate = isEn ? date : date.replace(/-/g, '. ') + '.';
   const stmtTypeVal = document.getElementById('stmtType').value;
+  const ownerName = isEn ? (biz.owner === '박재형' || !biz.owner ? 'Jaehyoung Park' : biz.owner) : (biz.owner || '박재형');
 
   const padded = [...items];
   while (padded.length < 10) padded.push({ name: '', spec: '', qty: '', price: '', supply: '', vat: '' });
@@ -5859,7 +5876,7 @@ function previewStatement() {
         <table class="stmt-party">
           <tr><td class="party-label" colspan="4">SUPPLIER</td></tr>
           <tr><th>Reg. No.</th><td colspan="3">${biz.regNo || '274-50-01075'}</td></tr>
-          <tr><th>Company</th><td>${biz.name}</td><th>Rep.</th><td>${biz.owner || '박재형'}</td></tr>
+          <tr><th>Company</th><td>${biz.name}</td><th>Rep.</th><td>${ownerName}</td></tr>
           <tr><th>Type</th><td colspan="3">${sectors}</td></tr>
         </table>
         <table class="stmt-party">
@@ -5871,7 +5888,7 @@ function previewStatement() {
       </div>
       <div style="text-align:right;font-size:13px;margin-bottom:8px;">
         <b>Date:</b> ${fmtDate} &nbsp;&nbsp;
-        <b>Total: ₩${totalAmount.toLocaleString()}</b>
+        <b>Total: ${cur}${totalAmount.toLocaleString()}</b>
       </div>
       <table class="stmt-items">
         <thead><tr>
@@ -5910,7 +5927,7 @@ function previewStatement() {
         <table class="stmt-party">
           <tr><td class="party-label" colspan="4">공 급 자</td></tr>
           <tr><th>등록번호</th><td colspan="3">${biz.regNo || '274-50-01075'}</td></tr>
-          <tr><th>상 호</th><td>${biz.name}</td><th>대 표</th><td>${biz.owner || '박재형'}</td></tr>
+          <tr><th>상 호</th><td>${biz.name}</td><th>대 표</th><td>${ownerName}</td></tr>
           <tr><th>업 태</th><td colspan="3">${sectors}</td></tr>
         </table>
         <table class="stmt-party">
@@ -5922,7 +5939,7 @@ function previewStatement() {
       </div>
       <div style="text-align:right;font-size:13px;margin-bottom:8px;">
         <b>작성일자:</b> ${fmtDate} &nbsp;&nbsp;
-        <b>합계금액: ₩${totalAmount.toLocaleString()}</b>
+        <b>합계금액: ${cur}${totalAmount.toLocaleString()}</b>
       </div>
       <table class="stmt-items">
         <thead><tr>
@@ -5965,6 +5982,7 @@ function previewStatement() {
     type: document.getElementById('stmtType').value,
     lang,
     taxType: exempt ? 'exempt' : 'taxable',
+    currency: document.getElementById('stmtCurrency').value,
     buyer: { name: buyerName, regNo: buyerRegNo, owner: buyerOwner, addr: buyerAddr },
     items,
     totalSupply, totalVat, totalAmount,
@@ -5989,6 +6007,7 @@ function resetStatement() {
   document.getElementById('stmtType').value = '청구';
   document.getElementById('stmtLang').value = 'ko';
   document.getElementById('stmtTaxType').value = 'taxable';
+  document.getElementById('stmtCurrency').value = 'KRW';
   onStmtTaxTypeChange();
   document.getElementById('stmtBuyerSelect').value = '';
   document.getElementById('stmtBuyerName').value = '';
