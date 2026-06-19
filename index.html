@@ -870,6 +870,25 @@ tbody tr:hover { background: #f8fafc; }
           <button class="btn btn-outline btn-sm" onclick="addStmtItem()">+ 품목 추가</button>
         </div>
 
+        <div style="margin-top:16px;display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <input type="checkbox" id="stmtShowBank" onchange="document.getElementById('stmtBankWrap').style.display=this.checked?'':'none'">
+          <label for="stmtShowBank" style="margin:0;cursor:pointer;">입금 계좌 표시</label>
+        </div>
+        <div id="stmtBankWrap" class="form-grid" style="display:none;">
+          <div class="form-group">
+            <label>은행명</label>
+            <input type="text" id="stmtBankName" placeholder="예: 우리은행">
+          </div>
+          <div class="form-group">
+            <label>계좌번호</label>
+            <input type="text" id="stmtBankAccount" placeholder="예: 1002-123-456789">
+          </div>
+          <div class="form-group">
+            <label>예금주</label>
+            <input type="text" id="stmtBankHolder" placeholder="예: 박재형">
+          </div>
+        </div>
+
         <div class="form-group" style="margin-top:16px;">
           <label>비고</label>
           <textarea id="stmtMemo" rows="2" placeholder="비고사항 (선택)"></textarea>
@@ -5704,6 +5723,11 @@ function loadSavedStatement(id) {
   document.getElementById('stmtLang').value = s.lang || 'ko';
   document.getElementById('stmtTaxType').value = s.taxType || 'taxable';
   document.getElementById('stmtCurrency').value = s.currency || 'KRW';
+  document.getElementById('stmtShowBank').checked = !!s.bank;
+  document.getElementById('stmtBankWrap').style.display = s.bank ? '' : 'none';
+  document.getElementById('stmtBankName').value = s.bank?.name || '';
+  document.getElementById('stmtBankAccount').value = s.bank?.account || '';
+  document.getElementById('stmtBankHolder').value = s.bank?.holder || '';
   onStmtTaxTypeChange();
   document.getElementById('stmtBuyerName').value = s.buyer?.name || '';
   document.getElementById('stmtBuyerRegNo').value = s.buyer?.regNo || '';
@@ -5832,6 +5856,10 @@ function previewStatement() {
   const buyerOwner = document.getElementById('stmtBuyerOwner').value.trim();
   const buyerAddr = document.getElementById('stmtBuyerAddr').value.trim();
   const memo = document.getElementById('stmtMemo').value.trim();
+  const showBank = document.getElementById('stmtShowBank').checked;
+  const bankName = document.getElementById('stmtBankName').value.trim();
+  const bankAccount = document.getElementById('stmtBankAccount').value.trim();
+  const bankHolder = document.getElementById('stmtBankHolder').value.trim();
   const items = getStmtItems();
 
   if (!date || !buyerName || items.length === 0) {
@@ -5906,6 +5934,9 @@ function previewStatement() {
         </tbody>
       </table>
       ${memo ? `<div class="stmt-footer" style="margin-top:12px;"><b>Remarks:</b> ${memo}</div>` : ''}
+      ${showBank && bankAccount ? `<div style="margin-top:12px;font-size:13px;border:1px solid #ccc;padding:10px 14px;border-radius:6px;">
+        <b>Bank Info</b><br>${bankName ? bankName + ' / ' : ''}${bankAccount}${bankHolder ? ' / ' + bankHolder : ''}
+      </div>` : ''}
       <div class="stmt-footer" style="margin-top:24px;text-align:center;">
         The above amount has been ${typeEn}.
       </div>
@@ -5957,6 +5988,9 @@ function previewStatement() {
         </tbody>
       </table>
       ${memo ? `<div class="stmt-footer" style="margin-top:12px;"><b>비고:</b> ${memo}</div>` : ''}
+      ${showBank && bankAccount ? `<div style="margin-top:12px;font-size:13px;border:1px solid #ccc;padding:10px 14px;border-radius:6px;">
+        <b>입금 계좌</b><br>${bankName ? bankName + ' / ' : ''}${bankAccount}${bankHolder ? ' / ' + bankHolder : ''}
+      </div>` : ''}
       <div class="stmt-footer" style="margin-top:24px;text-align:center;">
         위 금액을 ${stmtTypeVal} 함.
       </div>
@@ -5984,6 +6018,7 @@ function previewStatement() {
     lang,
     taxType: exempt ? 'exempt' : 'taxable',
     currency: document.getElementById('stmtCurrency').value,
+    bank: showBank ? { name: bankName, account: bankAccount, holder: bankHolder } : null,
     buyer: { name: buyerName, regNo: buyerRegNo, owner: buyerOwner, addr: buyerAddr },
     items,
     totalSupply, totalVat, totalAmount,
@@ -6009,6 +6044,11 @@ function resetStatement() {
   document.getElementById('stmtLang').value = 'ko';
   document.getElementById('stmtTaxType').value = 'taxable';
   document.getElementById('stmtCurrency').value = 'KRW';
+  document.getElementById('stmtShowBank').checked = false;
+  document.getElementById('stmtBankWrap').style.display = 'none';
+  document.getElementById('stmtBankName').value = '';
+  document.getElementById('stmtBankAccount').value = '';
+  document.getElementById('stmtBankHolder').value = '';
   onStmtTaxTypeChange();
   document.getElementById('stmtBuyerSelect').value = '';
   document.getElementById('stmtBuyerName').value = '';
