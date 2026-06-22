@@ -1813,6 +1813,7 @@ async function onLoginSuccess() {
   document.getElementById('userName').textContent = person.name;
 
   populateBizSelect();
+  autoCreateFixedCosts();
   showPage('dashboard');
   checkSupabaseStatus();
 }
@@ -6059,6 +6060,58 @@ function resetStatement() {
   document.getElementById('stmtItemsBody').innerHTML = '';
   stmtItemCount = 0;
   addStmtItem();
+}
+
+// ========== 고정비 자동 등록 ==========
+function autoCreateFixedCosts() {
+  const bizId = currentBizId();
+  if (!bizId) return;
+  const now = new Date();
+  const thisYear = now.getFullYear();
+  const thisMonth = now.getMonth();
+  const bizTxs = DATA.transactions.filter(t => t.bizId === bizId);
+  const fixedTxs = bizTxs.filter(t => t.isFixed && t.type === 'expense');
+  if (fixedTxs.length === 0) return;
+
+  const latestByKey = {};
+  fixedTxs.forEach(t => {
+    const key = `${t.category}||${t.partner}||${t.amount}`;
+    if (!latestByKey[key] || t.date > latestByKey[key].date) latestByKey[key] = t;
+  });
+
+  let created = 0;
+  Object.values(latestByKey).forEach(src => {
+    const srcDate = new Date(src.date);
+    let y = srcDate.getFullYear();
+    let m = srcDate.getMonth() + 1;
+
+    while (true) {
+      if (m >= 12) { m = 0; y++; }
+      else { m++; }
+      if (y > thisYear || (y === thisYear && m > thisMonth)) break;
+
+      const monthStr = `${y}-${String(m + 1).padStart(2, '0')}`;
+      const exists = bizTxs.some(t => t.isFixed && t.date.startsWith(monthStr)
+        && t.category === src.category && t.partner === src.partner && t.amount === src.amount);
+      if (exists) continue;
+
+      const newDate = `${monthStr}-${String(Math.min(new Date(src.date).getDate(), new Date(y, m + 1, 0).getDate())).padStart(2, '0')}`;
+      const tx = {
+        id: genId(), bizId, date: newDate, type: 'expense',
+        category: src.category, partner: src.partner,
+        amount: src.amount, vat: src.vat || 0,
+        taxType: src.taxType || 'taxable', evidence: src.evidence || 'none',
+        card: src.card || '', bank: src.bank || '', sector: src.sector || '',
+        memo: src.memo ? src.memo.replace(/\[자동등록\]\s*/g, '') : '',
+        isFixed: true
+      };
+      tx.memo = `[자동등록] ${tx.memo || tx.category}`.trim();
+      DATA.transactions.push(tx);
+      autoSyncTx(tx);
+      created++;
+    }
+  });
+  if (created > 0) console.log(`고정비 ${created}건 자동 등록 완료`);
 }
 
 // ========== INIT ==========
