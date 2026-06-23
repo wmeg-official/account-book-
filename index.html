@@ -2495,7 +2495,9 @@ function calcSalaryNet() {
   document.getElementById('txSalaryNet').value = gross - tax - local - pension - health - employment;
 }
 
+let editingWasFixed = false;
 function openTxModal(editId) {
+  editingWasFixed = false;
   document.getElementById('txEditId').value = editId || '';
   document.getElementById('txModalTitle').textContent = editId ? '거래 수정' : '거래 추가';
   document.getElementById('txDeleteBtn').style.display = editId ? 'block' : 'none';
@@ -2547,6 +2549,7 @@ function openTxModal(editId) {
       if (t.card) document.getElementById('txCard').value = t.card;
       if (t.bank) document.getElementById('txBank').value = t.bank;
       document.getElementById('txIsFixed').checked = !!t.isFixed;
+      editingWasFixed = !!t.isFixed;
     }
   }
   toggleSalaryFields();
@@ -2767,6 +2770,12 @@ function saveTx() {
   }
   const savedTxId = document.getElementById('txEditId').value || DATA.transactions[DATA.transactions.length - 1]?.id;
   const savedTx = DATA.transactions.find(t => t.id === savedTxId);
+
+  // 고정비 해제 시 자동 등록된 미래 거래 삭제
+  if (savedTx && editingWasFixed && !savedTx.isFixed) {
+    removeAutoCreatedFixedTxs(savedTx);
+  }
+
   saveData();
   closeTxModal();
   renderTransactions();
@@ -6113,6 +6122,18 @@ function autoCreateFixedCosts() {
     }
   });
   if (created > 0) console.log(`고정비 ${created}건 자동 등록 완료`);
+}
+
+function removeAutoCreatedFixedTxs(srcTx) {
+  const toRemove = DATA.transactions.filter(t =>
+    t.id !== srcTx.id && t.isFixed && t.bizId === srcTx.bizId
+    && t.category === srcTx.category && t.partner === srcTx.partner && t.amount === srcTx.amount
+    && t.date > srcTx.date
+  );
+  if (toRemove.length === 0) return;
+  if (!confirm(`이 고정비에서 자동 등록된 거래 ${toRemove.length}건을 삭제할까요?`)) return;
+  toRemove.forEach(t => autoDeleteTx(t.id));
+  DATA.transactions = DATA.transactions.filter(t => !toRemove.includes(t));
 }
 
 // ========== INIT ==========
