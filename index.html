@@ -3903,7 +3903,7 @@ function openProxySettleModal(id) {
   document.getElementById('settlePurchaseOrderNo').value = o.purchaseOrderNo || '';
   document.getElementById('settlePurchaseAmount').value = o.purchaseAmount || '';
   document.getElementById('settleExtraCost').value = o.extraCost || '';
-  document.getElementById('settleDate').value = o.settleDate || new Date().toISOString().slice(0, 10);
+  document.getElementById('settleDate').value = o.settleDate || '';
   calcProxyCommission();
   document.getElementById('proxySettleModal').classList.add('show');
 }
@@ -3936,6 +3936,7 @@ function settleProxy() {
   const extra = parseInt(document.getElementById('settleExtraCost').value) || 0;
   const settleDate = document.getElementById('settleDate').value;
 
+  if (!settleDate) { alert('정산일을 입력하세요.'); return; }
   if (purchase <= 0) { alert('실제 구매금액을 입력하세요.'); return; }
 
   const commission = o.customerAmount - purchase - extra;
