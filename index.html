@@ -6125,15 +6125,20 @@ function autoCreateFixedCosts() {
 }
 
 function removeAutoCreatedFixedTxs(srcTx) {
-  const toRemove = DATA.transactions.filter(t =>
+  const matching = DATA.transactions.filter(t =>
     t.id !== srcTx.id && t.isFixed && t.bizId === srcTx.bizId
     && t.category === srcTx.category && t.partner === srcTx.partner && t.amount === srcTx.amount
-    && t.date > srcTx.date
   );
-  if (toRemove.length === 0) return;
-  if (!confirm(`이 고정비에서 자동 등록된 거래 ${toRemove.length}건을 삭제할까요?`)) return;
+  const toRemove = matching.filter(t => t.date > srcTx.date);
+  const toUnfix = matching.filter(t => t.date <= srcTx.date);
+  if (toRemove.length === 0 && toUnfix.length === 0) return;
+  const msg = toRemove.length > 0
+    ? `이 고정비에서 자동 등록된 거래 ${toRemove.length}건을 삭제할까요?`
+    : `이 고정비의 과거 거래 ${toUnfix.length}건의 고정비 표시를 해제할까요?`;
+  if (!confirm(msg)) return;
   toRemove.forEach(t => autoDeleteTx(t.id));
   DATA.transactions = DATA.transactions.filter(t => !toRemove.includes(t));
+  toUnfix.forEach(t => { t.isFixed = false; autoSyncTx(t); });
 }
 
 // ========== INIT ==========
