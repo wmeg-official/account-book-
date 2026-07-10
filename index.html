@@ -507,6 +507,10 @@ tbody tr:hover { background: #f8fafc; }
           <label>&nbsp;</label>
           <button class="btn btn-outline" onclick="openCoupangUpload()">🟠 쿠팡</button>
         </div>
+        <div class="form-group">
+          <label>&nbsp;</label>
+          <button class="btn btn-outline" onclick="openEtsyUpload()">🧡 Etsy</button>
+        </div>
       </div>
       <div id="txTable" class="table-wrap"></div>
     </div>
@@ -1367,6 +1371,30 @@ tbody tr:hover { background: #f8fafc; }
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeCoupangModal()">취소</button>
       <button class="btn btn-primary" id="cpConfirmBtn" onclick="confirmCoupangUpload()" style="display:none;">확인 등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- Etsy 업로드 모달 -->
+<div id="etsyModal" class="modal-overlay">
+  <div class="modal" style="max-width:700px;">
+    <h3>🧡 Etsy 매출 업로드</h3>
+    <p style="font-size:13px;color:var(--text-light);margin-bottom:16px;">
+      Etsy Payment Account에서 다운받은 CSV 파일을 올려주세요.<br>
+      USD 금액을 월 말일 환율로 원화 환산합니다. (면세 처리)
+    </p>
+    <div class="form-group">
+      <label>CSV 파일 *</label>
+      <input type="file" id="etsyUploadFile" accept=".csv" onchange="parseEtsyFile(this)">
+    </div>
+    <div id="etsyPreview" style="display:none;">
+      <hr style="border:none;border-top:1px solid var(--border);margin:16px 0;">
+      <div id="etsyRateInputs"></div>
+      <div id="etsySummary"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeEtsyModal()">취소</button>
+      <button class="btn btn-primary" id="etsyConfirmBtn" onclick="confirmEtsyUpload()" style="display:none;">확인 등록</button>
     </div>
   </div>
 </div>
@@ -5608,6 +5636,218 @@ async function confirmCoupangUpload() {
   closeCoupangModal();
   renderTransactions();
   alert(`등록 완료!\n\n• 쿠팡 매출: ${totalSales.toLocaleString()}원\n• 판매수수료: ${totalFee.toLocaleString()}원`);
+}
+
+// ========== Etsy 업로드 ==========
+let etsyParsedData = null;
+
+function openEtsyUpload() {
+  document.getElementById('etsyUploadFile').value = '';
+  document.getElementById('etsyPreview').style.display = 'none';
+  document.getElementById('etsyConfirmBtn').style.display = 'none';
+  document.getElementById('etsySummary').innerHTML = '';
+  document.getElementById('etsyRateInputs').innerHTML = '';
+  etsyParsedData = null;
+  document.getElementById('etsyModal').classList.add('show');
+}
+
+function closeEtsyModal() {
+  document.getElementById('etsyModal').classList.remove('show');
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQ) {
+      if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+      else if (ch === '"') inQ = false;
+      else cur += ch;
+    } else {
+      if (ch === '"') inQ = true;
+      else if (ch === ',') { result.push(cur.trim()); cur = ''; }
+      else cur += ch;
+    }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function parseEtsyFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const lines = e.target.result.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) { alert('데이터가 없습니다.'); return; }
+
+      const header = parseCSVLine(lines[0]);
+      const ci = {};
+      header.forEach((h, i) => {
+        const ht = h.toLowerCase().replace(/[^a-z]/g, '');
+        if (ht === 'date') ci.date = i;
+        if (ht === 'type') ci.type = i;
+        if (ht === 'amount') ci.amount = i;
+        if (ht === 'fee' || ht === 'fees' || ht === 'feestaxes') ci.fee = i;
+        if (ht === 'net') ci.net = i;
+      });
+
+      if (ci.date === undefined || ci.type === undefined) {
+        alert('Etsy CSV 형식이 아닙니다.\nDate, Type 컬럼이 필요합니다.');
+        return;
+      }
+
+      const months = {};
+      for (let r = 1; r < lines.length; r++) {
+        const row = parseCSVLine(lines[r]);
+        if (!row[ci.type]) continue;
+        const type = row[ci.type].trim().toLowerCase();
+        const parsed = new Date(row[ci.date]);
+        if (isNaN(parsed)) continue;
+        const ym = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`;
+
+        if (!months[ym]) months[ym] = { sales: 0, fees: 0, tax: 0 };
+
+        const amt = parseFloat(String(row[ci.amount] || '0').replace(/[$,]/g, '')) || 0;
+        const fee = ci.fee !== undefined ? Math.abs(parseFloat(String(row[ci.fee] || '0').replace(/[$,]/g, '')) || 0) : 0;
+
+        if (type === 'sale') {
+          months[ym].sales += amt;
+          months[ym].fees += fee;
+        } else if (type === 'fee' || type === 'marketing') {
+          months[ym].fees += Math.abs(amt);
+        } else if (type === 'tax') {
+          months[ym].tax += Math.abs(amt);
+        } else if (type === 'refund') {
+          months[ym].sales -= Math.abs(amt);
+        }
+      }
+
+      const sortedMonths = Object.keys(months).sort();
+      if (sortedMonths.length === 0) { alert('매출 데이터가 없습니다.'); return; }
+
+      etsyParsedData = { months, sortedMonths };
+
+      let rateHtml = '<h4 style="margin-bottom:8px;">월말 환율 입력 (USD → KRW)</h4><div class="form-grid" style="margin-bottom:16px;">';
+      sortedMonths.forEach(ym => {
+        rateHtml += `<div class="form-group"><label>${ym}</label>
+          <input type="number" id="etsyRate_${ym}" step="0.01" placeholder="예: 1380.00" oninput="updateEtsyPreview()"></div>`;
+      });
+      rateHtml += '</div>';
+      document.getElementById('etsyRateInputs').innerHTML = rateHtml;
+
+      updateEtsyPreview();
+      document.getElementById('etsyPreview').style.display = 'block';
+      document.getElementById('etsyConfirmBtn').style.display = 'inline-flex';
+    } catch (err) {
+      alert('CSV 읽기 오류: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function updateEtsyPreview() {
+  if (!etsyParsedData) return;
+  const { months, sortedMonths } = etsyParsedData;
+  let html = '<h4 style="margin-bottom:8px;">등록 예정 내역</h4><div class="report-section" style="padding:12px;">';
+  let idx = 1;
+  sortedMonths.forEach(ym => {
+    const m = months[ym];
+    const rate = parseFloat(document.getElementById(`etsyRate_${ym}`)?.value) || 0;
+    const [y, mo] = ym.split('-').map(Number);
+    const lastDay = new Date(y, mo, 0).getDate();
+    const dateStr = `${ym}-${String(lastDay).padStart(2, '0')}`;
+
+    if (m.sales > 0) {
+      html += `<p style="margin-bottom:4px;"><b>${idx++}. 매출</b></p>
+        <p style="font-size:13px;color:var(--text-light);margin-bottom:12px;">
+        📅 ${dateStr} | Etsy 매출 | $${m.sales.toFixed(2)} × ${rate || '???'} = ${rate ? Math.round(m.sales * rate).toLocaleString() + '원' : '???'} (면세)</p>`;
+    }
+    if (m.fees > 0) {
+      html += `<p style="margin-bottom:4px;"><b>${idx++}. 수수료</b></p>
+        <p style="font-size:13px;color:var(--text-light);margin-bottom:12px;">
+        📅 ${dateStr} | Etsy 수수료 | $${m.fees.toFixed(2)} × ${rate || '???'} = ${rate ? Math.round(m.fees * rate).toLocaleString() + '원' : '???'} (면세)</p>`;
+    }
+    if (m.tax > 0) {
+      html += `<p style="margin-bottom:4px;"><b>${idx++}. 해외 Tax</b></p>
+        <p style="font-size:13px;color:var(--text-light);margin-bottom:12px;">
+        📅 ${dateStr} | Etsy 해외 Tax | $${m.tax.toFixed(2)} × ${rate || '???'} = ${rate ? Math.round(m.tax * rate).toLocaleString() + '원' : '???'} (면세)</p>`;
+    }
+  });
+  html += '</div>';
+  document.getElementById('etsySummary').innerHTML = html;
+}
+
+async function confirmEtsyUpload() {
+  if (!etsyParsedData) return;
+  const { months, sortedMonths } = etsyParsedData;
+
+  for (const ym of sortedMonths) {
+    const rate = parseFloat(document.getElementById(`etsyRate_${ym}`)?.value);
+    if (!rate || rate <= 0) { alert(`${ym} 환율을 입력해주세요.`); return; }
+  }
+  if (!confirm('위 내용대로 등록하시겠습니까?')) return;
+
+  const bizId = currentBizId();
+  const newTxs = [];
+
+  for (const ym of sortedMonths) {
+    const m = months[ym];
+    const rate = parseFloat(document.getElementById(`etsyRate_${ym}`).value);
+    const [y, mo] = ym.split('-').map(Number);
+    const lastDay = new Date(y, mo, 0).getDate();
+    const dateStr = `${ym}-${String(lastDay).padStart(2, '0')}`;
+
+    if (m.sales > 0) {
+      const tx = {
+        id: genId(), bizId, date: dateStr,
+        type: 'income', category: 'Etsy 매출', partner: 'Etsy',
+        amount: Math.round(m.sales * rate), vat: 0, taxType: 'exempt',
+        evidence: 'none', card: '', bank: '', sector: '',
+        memo: `[자동등록] ${ym} Etsy 매출 ($${m.sales.toFixed(2)} × ${rate})`
+      };
+      DATA.transactions.push(tx);
+      newTxs.push(tx);
+    }
+    if (m.fees > 0) {
+      const tx = {
+        id: genId(), bizId, date: dateStr,
+        type: 'expense', category: 'Etsy 수수료', partner: 'Etsy',
+        amount: Math.round(m.fees * rate), vat: 0, taxType: 'exempt',
+        evidence: 'none', card: '', bank: '', sector: '',
+        memo: `[자동등록] ${ym} Etsy 수수료 ($${m.fees.toFixed(2)} × ${rate})`
+      };
+      DATA.transactions.push(tx);
+      newTxs.push(tx);
+    }
+    if (m.tax > 0) {
+      const tx = {
+        id: genId(), bizId, date: dateStr,
+        type: 'expense', category: 'Etsy 해외 Tax', partner: 'Etsy',
+        amount: Math.round(m.tax * rate), vat: 0, taxType: 'exempt',
+        evidence: 'none', card: '', bank: '', sector: '',
+        memo: `[자동등록] ${ym} Etsy 해외 Tax ($${m.tax.toFixed(2)} × ${rate})`
+      };
+      DATA.transactions.push(tx);
+      newTxs.push(tx);
+    }
+  }
+
+  saveData();
+  for (const tx of newTxs) await autoSyncTx(tx);
+
+  closeEtsyModal();
+  renderTransactions();
+
+  const getRate = ym => parseFloat(document.getElementById(`etsyRate_${ym}`).value);
+  const totalSales = sortedMonths.reduce((s, ym) => s + Math.round(months[ym].sales * getRate(ym)), 0);
+  const totalFees = sortedMonths.reduce((s, ym) => s + Math.round(months[ym].fees * getRate(ym)), 0);
+  const totalTax = sortedMonths.reduce((s, ym) => s + Math.round(months[ym].tax * getRate(ym)), 0);
+  let msg = `등록 완료!\n\n• Etsy 매출: ${totalSales.toLocaleString()}원\n• Etsy 수수료: ${totalFees.toLocaleString()}원`;
+  if (totalTax > 0) msg += `\n• Etsy 해외 Tax: ${totalTax.toLocaleString()}원`;
+  alert(msg);
 }
 
 // ========== 거래명세서 ==========
