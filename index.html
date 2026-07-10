@@ -5674,6 +5674,28 @@ function parseCSVLine(line) {
   return result;
 }
 
+async function fetchEtsyRates(sortedMonths) {
+  const status = document.getElementById('etsyRateStatus');
+  status.textContent = '(환율 조회중...)';
+  let ok = 0;
+  for (const ym of sortedMonths) {
+    const [y, mo] = ym.split('-').map(Number);
+    const lastDay = new Date(y, mo, 0).getDate();
+    const dateStr = `${ym}-${String(lastDay).padStart(2, '0')}`;
+    try {
+      const url = `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${dateStr}/v1/currencies/usd.json`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.usd && data.usd.krw) {
+        const input = document.getElementById(`etsyRate_${ym}`);
+        if (input && !input.value) { input.value = Math.round(data.usd.krw * 100) / 100; ok++; }
+      }
+    } catch {}
+  }
+  status.textContent = ok > 0 ? `(${ok}건 자동 조회 — 수정 가능)` : '(자동 조회 실패 — 직접 입력)';
+  updateEtsyPreview();
+}
+
 function parseEtsyFile(input) {
   const file = input.files[0];
   if (!file) return;
@@ -5712,18 +5734,19 @@ function parseEtsyFile(input) {
 
         if (!months[ym]) months[ym] = { sales: 0, fees: 0, tax: 0 };
 
-        const amt = parseFloat(String(row[ci.amount] || '0').replace(/[$,]/g, '')) || 0;
-        const fee = ci.fee !== undefined ? Math.abs(parseFloat(String(row[ci.fee] || '0').replace(/[$,]/g, '')) || 0) : 0;
+        const parseUSD = v => Math.abs(parseFloat(String(v || '0').replace(/[$,\-]+/g, m => m === '-' ? '-' : '')) || 0);
+        const amt = parseUSD(row[ci.amount]);
+        const feeVal = ci.fee !== undefined ? parseUSD(row[ci.fee]) : 0;
+        const netVal = ci.net !== undefined ? parseUSD(row[ci.net]) : 0;
 
         if (type === 'sale' || type === 'order') {
-          months[ym].sales += amt;
-          months[ym].fees += fee;
+          months[ym].sales += amt || netVal;
         } else if (type.includes('fee') || type.includes('marketing') || type.includes('listing') || type.includes('advertising')) {
-          months[ym].fees += Math.abs(amt);
+          months[ym].fees += feeVal || netVal || amt;
         } else if (type.includes('tax')) {
-          months[ym].tax += Math.abs(amt);
+          months[ym].tax += feeVal || netVal || amt;
         } else if (type.includes('refund')) {
-          months[ym].sales -= Math.abs(amt);
+          months[ym].sales -= amt || netVal;
         }
       }
 
@@ -5735,14 +5758,15 @@ function parseEtsyFile(input) {
 
       etsyParsedData = { months, sortedMonths };
 
-      let rateHtml = '<h4 style="margin-bottom:8px;">월말 환율 입력 (USD → KRW)</h4><div class="form-grid" style="margin-bottom:16px;">';
+      let rateHtml = '<h4 style="margin-bottom:8px;">월말 환율 (USD → KRW) <span id="etsyRateStatus" style="font-size:12px;color:var(--text-light);font-weight:normal;"></span></h4><div class="form-grid" style="margin-bottom:16px;">';
       sortedMonths.forEach(ym => {
         rateHtml += `<div class="form-group"><label>${ym}</label>
-          <input type="number" id="etsyRate_${ym}" step="0.01" placeholder="예: 1380.00" oninput="updateEtsyPreview()"></div>`;
+          <input type="number" id="etsyRate_${ym}" step="0.01" placeholder="조회중..." oninput="updateEtsyPreview()"></div>`;
       });
       rateHtml += '</div>';
       document.getElementById('etsyRateInputs').innerHTML = rateHtml;
 
+      fetchEtsyRates(sortedMonths);
       updateEtsyPreview();
       document.getElementById('etsyPreview').style.display = 'block';
       document.getElementById('etsyConfirmBtn').style.display = 'inline-flex';
