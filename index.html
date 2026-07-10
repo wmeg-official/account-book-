@@ -5686,11 +5686,11 @@ function parseEtsyFile(input) {
       const header = parseCSVLine(lines[0]);
       const ci = {};
       header.forEach((h, i) => {
-        const ht = h.toLowerCase().replace(/[^a-z]/g, '');
-        if (ht === 'date') ci.date = i;
+        const ht = h.toLowerCase().trim();
+        if (ht.includes('date')) ci.date = i;
         if (ht === 'type') ci.type = i;
         if (ht === 'amount') ci.amount = i;
-        if (ht === 'fee' || ht === 'fees' || ht === 'feestaxes') ci.fee = i;
+        if (ht.includes('fee')) ci.fee = i;
         if (ht === 'net') ci.net = i;
       });
 
@@ -5700,10 +5700,12 @@ function parseEtsyFile(input) {
       }
 
       const months = {};
+      let debugTypes = new Set();
       for (let r = 1; r < lines.length; r++) {
         const row = parseCSVLine(lines[r]);
         if (!row[ci.type]) continue;
         const type = row[ci.type].trim().toLowerCase();
+        debugTypes.add(type);
         const parsed = new Date(row[ci.date]);
         if (isNaN(parsed)) continue;
         const ym = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`;
@@ -5713,17 +5715,20 @@ function parseEtsyFile(input) {
         const amt = parseFloat(String(row[ci.amount] || '0').replace(/[$,]/g, '')) || 0;
         const fee = ci.fee !== undefined ? Math.abs(parseFloat(String(row[ci.fee] || '0').replace(/[$,]/g, '')) || 0) : 0;
 
-        if (type === 'sale') {
+        if (type === 'sale' || type === 'order') {
           months[ym].sales += amt;
           months[ym].fees += fee;
-        } else if (type === 'fee' || type === 'marketing') {
+        } else if (type.includes('fee') || type.includes('marketing') || type.includes('listing') || type.includes('advertising')) {
           months[ym].fees += Math.abs(amt);
-        } else if (type === 'tax') {
+        } else if (type.includes('tax')) {
           months[ym].tax += Math.abs(amt);
-        } else if (type === 'refund') {
+        } else if (type.includes('refund')) {
           months[ym].sales -= Math.abs(amt);
         }
       }
+
+      console.log('Etsy CSV 컬럼:', header, '인덱스:', ci);
+      console.log('Etsy CSV Type 값들:', [...debugTypes]);
 
       const sortedMonths = Object.keys(months).sort();
       if (sortedMonths.length === 0) { alert('매출 데이터가 없습니다.'); return; }
