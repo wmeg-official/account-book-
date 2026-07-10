@@ -5768,12 +5768,12 @@ function updateEtsyPreview() {
     if (m.fees > 0) {
       html += `<p style="margin-bottom:4px;"><b>${idx++}. 수수료</b></p>
         <p style="font-size:13px;color:var(--text-light);margin-bottom:12px;">
-        📅 ${dateStr} | Etsy 수수료 | $${m.fees.toFixed(2)} × ${rate || '???'} = ${rate ? Math.round(m.fees * rate).toLocaleString() + '원' : '???'} (면세)</p>`;
+        📅 ${dateStr} | 지급수수료(Etsy) | $${m.fees.toFixed(2)} × ${rate || '???'} = ${rate ? Math.round(m.fees * rate).toLocaleString() + '원' : '???'} (면세)</p>`;
     }
     if (m.tax > 0) {
       html += `<p style="margin-bottom:4px;"><b>${idx++}. 해외 Tax</b></p>
         <p style="font-size:13px;color:var(--text-light);margin-bottom:12px;">
-        📅 ${dateStr} | Etsy 해외 Tax | $${m.tax.toFixed(2)} × ${rate || '???'} = ${rate ? Math.round(m.tax * rate).toLocaleString() + '원' : '???'} (면세)</p>`;
+        📅 ${dateStr} | 지급수수료(Etsy Tax) | $${m.tax.toFixed(2)} × ${rate || '???'} = ${rate ? Math.round(m.tax * rate).toLocaleString() + '원' : '???'} (면세)</p>`;
     }
   });
   html += '</div>';
@@ -5814,10 +5814,10 @@ async function confirmEtsyUpload() {
     if (m.fees > 0) {
       const tx = {
         id: genId(), bizId, date: dateStr,
-        type: 'expense', category: 'Etsy 수수료', partner: 'Etsy',
+        type: 'expense', category: '지급수수료', partner: 'Etsy',
         amount: Math.round(m.fees * rate), vat: 0, taxType: 'exempt',
         evidence: 'none', card: '', bank: '', sector: '',
-        memo: `[자동등록] ${ym} Etsy 수수료 ($${m.fees.toFixed(2)} × ${rate})`
+        memo: `[자동등록] ${ym} Etsy 판매수수료 ($${m.fees.toFixed(2)} × ${rate})`
       };
       DATA.transactions.push(tx);
       newTxs.push(tx);
@@ -5825,7 +5825,7 @@ async function confirmEtsyUpload() {
     if (m.tax > 0) {
       const tx = {
         id: genId(), bizId, date: dateStr,
-        type: 'expense', category: 'Etsy 해외 Tax', partner: 'Etsy',
+        type: 'expense', category: '지급수수료', partner: 'Etsy',
         amount: Math.round(m.tax * rate), vat: 0, taxType: 'exempt',
         evidence: 'none', card: '', bank: '', sector: '',
         memo: `[자동등록] ${ym} Etsy 해외 Tax ($${m.tax.toFixed(2)} × ${rate})`
