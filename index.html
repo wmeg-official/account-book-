@@ -1168,7 +1168,11 @@ tbody tr:hover { background: #f8fafc; }
     <input type="hidden" id="proxyEditId">
     <div class="form-grid">
       <div class="form-group">
-        <label>주문일 (고객 결제일) *</label>
+        <label>정산기준일 *</label>
+        <input type="date" id="proxyReportDate">
+      </div>
+      <div class="form-group">
+        <label>결제일</label>
         <input type="date" id="proxyOrderDate">
       </div>
       <div class="form-group">
@@ -1523,7 +1527,8 @@ async function loadDataFromServer() {
 
     // proxy orders
     const proxyOrders = (proxyRes.data || []).map(o => ({
-      id: o.id, bizId: o.biz_id, orderDate: o.order_date, orderNo: o.order_no || '',
+      id: o.id, bizId: o.biz_id, orderDate: o.order_date, reportDate: o.report_date || o.order_date,
+      orderNo: o.order_no || '',
       customer: o.customer || '', customerAmount: o.customer_amount || 0,
       items: typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []),
       shippingCost: o.shipping_cost || 0, platform: o.platform || '',
@@ -1652,7 +1657,8 @@ async function _doSaveSettings() {
     }
     // proxy orders
     const proxyRows = (DATA.proxyOrders || []).map(o => ({
-      id: o.id, biz_id: o.bizId, order_date: o.orderDate, order_no: o.orderNo || '',
+      id: o.id, biz_id: o.bizId, order_date: o.orderDate, report_date: o.reportDate || null,
+      order_no: o.orderNo || '',
       customer: o.customer || '', customer_amount: o.customerAmount || 0,
       items: o.items || [], shipping_cost: o.shippingCost || 0,
       platform: o.platform || '', description: o.description || '',
@@ -3720,11 +3726,12 @@ function renderProxy() {
   const status = document.getElementById('proxyStatus').value;
 
   let orders = bizProxyOrders();
-  orders = orders.filter(o => new Date(o.orderDate).getFullYear() === year);
-  if (month !== 'all') orders = orders.filter(o => new Date(o.orderDate).getMonth() + 1 === parseInt(month));
+  const getDate = o => o.reportDate || o.orderDate;
+  orders = orders.filter(o => new Date(getDate(o)).getFullYear() === year);
+  if (month !== 'all') orders = orders.filter(o => new Date(getDate(o)).getMonth() + 1 === parseInt(month));
   if (status !== 'all') orders = orders.filter(o => (o.settled ? 'done' : 'pending') === status);
 
-  orders.sort((a, b) => b.orderDate.localeCompare(a.orderDate));
+  orders.sort((a, b) => (b.reportDate || b.orderDate).localeCompare(a.reportDate || a.orderDate));
 
   const totalCustomer = orders.reduce((s, o) => s + o.customerAmount, 0);
   const settledOrders = orders.filter(o => o.settled);
@@ -3747,11 +3754,12 @@ function renderProxy() {
   document.getElementById('proxyTable').innerHTML = `
     <div class="table-header"><h3>구매대행 주문 목록</h3></div>
     <table><thead><tr>
-      <th>주문일</th><th>주문번호</th><th>고객</th><th>플랫폼</th><th>상품</th><th>고객결제액</th><th>실구매액</th><th>기타비용</th><th>수수료(공급가액)</th><th>부가세</th><th>수수료(합계)</th><th>상태</th><th>관리</th>
+      <th>정산기준일</th><th>결제일</th><th>주문번호</th><th>고객</th><th>플랫폼</th><th>상품</th><th>고객결제액</th><th>실구매액</th><th>기타비용</th><th>수수료(공급가액)</th><th>부가세</th><th>수수료(합계)</th><th>상태</th><th>관리</th>
     </tr></thead><tbody>
     ${orders.map(o => {
       const isDone = o.settled;
       return `<tr>
+        <td>${o.reportDate || '-'}</td>
         <td>${o.orderDate}</td>
         <td style="font-size:12px;">${o.orderNo || '-'}</td>
         <td>${o.customer}</td>
@@ -3822,6 +3830,7 @@ function openProxyModal(editId) {
   if (editId) {
     const o = (DATA.proxyOrders || []).find(x => x.id === editId);
     if (!o) return;
+    document.getElementById('proxyReportDate').value = o.reportDate || '';
     document.getElementById('proxyOrderDate').value = o.orderDate;
     document.getElementById('proxyOrderNo').value = o.orderNo || '';
     document.getElementById('proxyCustomer').value = o.customer;
@@ -3840,7 +3849,8 @@ function openProxyModal(editId) {
       document.getElementById('proxyPurchaseOrderNo').value = o.purchaseOrderNo || '';
     }
   } else {
-    document.getElementById('proxyOrderDate').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('proxyReportDate').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('proxyOrderDate').value = '';
     document.getElementById('proxyOrderNo').value = '';
     document.getElementById('proxyCustomer').value = '';
     document.getElementById('proxyPlatform').value = '';
@@ -3858,13 +3868,14 @@ function closeProxyModal() { document.getElementById('proxyModal').classList.rem
 function editProxy(id) { openProxyModal(id); }
 
 function saveProxy() {
+  const reportDate = document.getElementById('proxyReportDate').value;
   const orderDate = document.getElementById('proxyOrderDate').value;
   const customer = document.getElementById('proxyCustomer').value.trim();
   const items = getProxyItems();
   const shippingCost = parseInt(document.getElementById('proxyShippingCost').value) || 0;
   const customerAmount = parseInt(document.getElementById('proxyCustomerAmount').value) || 0;
 
-  if (!orderDate || !customer) { alert('주문일, 고객명을 입력하세요.'); return; }
+  if (!reportDate || !customer) { alert('정산기준일, 고객명을 입력하세요.'); return; }
   if (items.length === 0) { alert('최소 1개 이상의 항목을 입력하세요.'); return; }
   if (customerAmount <= 0) { alert('항목 금액을 입력하세요.'); return; }
 
@@ -3879,7 +3890,8 @@ function saveProxy() {
   if (editId) {
     const o = DATA.proxyOrders.find(x => x.id === editId);
     if (o) {
-      o.orderDate = orderDate;
+      o.reportDate = reportDate;
+      o.orderDate = orderDate || reportDate;
       o.orderNo = orderNo;
       o.customer = customer;
       o.customerAmount = customerAmount;
@@ -3901,7 +3913,8 @@ function saveProxy() {
     DATA.proxyOrders.push({
       id: 'proxy_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       bizId: currentBizId(),
-      orderDate,
+      reportDate,
+      orderDate: orderDate || reportDate,
       orderNo,
       customer,
       customerAmount,
@@ -4015,9 +4028,9 @@ function settleProxy() {
     o.txId = null;
   }
 
-  // 월별 합산 거래 생성/업데이트 (정산일=구매확정일 기준)
-  const settleMonth = settleDate.slice(0, 7); // "YYYY-MM"
-  syncProxyMonthlyTx(settleMonth);
+  // 월별 합산 거래 생성/업데이트 (정산기준일 기준)
+  const reportMonth = (o.reportDate || o.orderDate).slice(0, 7);
+  syncProxyMonthlyTx(reportMonth);
 
   saveData();
   closeProxySettleModal();
@@ -4029,7 +4042,7 @@ function settleProxy() {
 function syncProxyMonthlyTx(yearMonth) {
   const bizId = currentBizId();
   const settledOrders = (DATA.proxyOrders || []).filter(o =>
-    o.bizId === bizId && o.settled && (o.settleDate || o.orderDate).startsWith(yearMonth)
+    o.bizId === bizId && o.settled && (o.reportDate || o.orderDate).startsWith(yearMonth)
   );
 
   const totalCommission = settledOrders.reduce((s, o) => s + (o.commission || 0), 0);
@@ -4099,7 +4112,7 @@ function resyncAllProxyMonthlyTx() {
   const bizId = currentBizId();
   const settledOrders = (DATA.proxyOrders || []).filter(o => o.bizId === bizId && o.settled);
   // 관련된 모든 월 추출
-  const months = new Set(settledOrders.map(o => (o.settleDate || o.orderDate).slice(0, 7)));
+  const months = new Set(settledOrders.map(o => (o.reportDate || o.orderDate).slice(0, 7)));
   // 기존 월별 거래 중 정산 건이 없어진 월도 포함
   DATA.transactions.forEach(t => {
     if (t.id && t.id.startsWith(`proxy_monthly_${bizId}_`)) {
