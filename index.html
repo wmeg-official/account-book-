@@ -489,6 +489,17 @@ tbody tr:hover { background: #f8fafc; }
           <select id="txFilterPartner"><option value="all">전체</option></select>
         </div>
         <div class="form-group">
+          <label>증빙</label>
+          <select id="txFilterEvidence">
+            <option value="all">전체</option>
+            <option value="card">카드</option>
+            <option value="tax-invoice">세금계산서</option>
+            <option value="cash-receipt">현금영수증</option>
+            <option value="bank">계좌이체</option>
+            <option value="none">없음</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label>보기</label>
           <select id="txFilterView" onchange="renderTransactions()">
             <option value="list">날짜순</option>
@@ -2392,10 +2403,12 @@ function renderTransactions() {
   const type = document.getElementById('txFilterType').value;
   const cat = document.getElementById('txFilterCat').value;
   const partner = document.getElementById('txFilterPartner').value;
+  const evidence = document.getElementById('txFilterEvidence').value;
 
   if (type !== 'all') txs = txs.filter(t => t.type === type);
   if (cat !== 'all') txs = txs.filter(t => t.category === cat);
   if (partner !== 'all') txs = txs.filter(t => t.partner === partner);
+  if (evidence !== 'all') txs = txs.filter(t => (t.evidence || 'none') === evidence);
 
   txs.sort((a, b) => b.date.localeCompare(a.date));
 
@@ -2834,7 +2847,7 @@ function deleteTxFromModal() {
 
 function onTxQuickFilter() { renderTransactions(); }
 // filter events
-['txFilterType','txFilterCat','txFilterPartner'].forEach(id => {
+['txFilterType','txFilterCat','txFilterPartner','txFilterEvidence'].forEach(id => {
   document.getElementById(id).addEventListener('change', renderTransactions);
 });
 
