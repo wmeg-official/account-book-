@@ -1119,6 +1119,10 @@ tbody tr:hover { background: #f8fafc; }
     <div id="bizSectorsList"></div>
     <div class="form-grid" style="margin-top:8px;">
       <div class="form-group">
+        <label>업종코드</label>
+        <input type="text" id="bizNewCode" placeholder="예: 525101">
+      </div>
+      <div class="form-group">
         <label>업태</label>
         <input type="text" id="bizNewCategory" placeholder="예: 도소매업, 서비스업">
       </div>
@@ -2518,7 +2522,8 @@ function updateTxSectorOptions() {
   const sectors = biz && biz.sectors ? biz.sectors : [];
   sel.innerHTML = '<option value="">선택 안함</option>';
   sectors.forEach(s => {
-    sel.innerHTML += `<option value="${s.category}|${s.type}">${s.category} - ${s.type}</option>`;
+    const label = s.code ? `[${s.code}] ${s.category} - ${s.type}` : `${s.category} - ${s.type}`;
+    sel.innerHTML += `<option value="${s.category}|${s.type}">${label}</option>`;
   });
 }
 
@@ -3612,9 +3617,9 @@ function renderBizSectorsList() {
     el.innerHTML = '<p style="font-size:13px;color:var(--text-light);">등록된 업종이 없습니다.</p>';
     return;
   }
-  el.innerHTML = `<table style="margin-bottom:0"><thead><tr><th>업태</th><th>종목</th><th></th></tr></thead><tbody>
+  el.innerHTML = `<table style="margin-bottom:0"><thead><tr><th>코드</th><th>업태</th><th>종목</th><th></th></tr></thead><tbody>
     ${tempSectors.map((s, i) => `<tr>
-      <td>${s.category}</td><td>${s.type}</td>
+      <td>${s.code || ''}</td><td>${s.category}</td><td>${s.type}</td>
       <td><button class="btn btn-danger btn-sm" onclick="removeBizSector(${i})">삭제</button></td>
     </tr>`).join('')}
   </tbody></table>`;
@@ -3624,7 +3629,9 @@ function addBizSector() {
   const cat = document.getElementById('bizNewCategory').value.trim();
   const type = document.getElementById('bizNewType').value.trim();
   if (!cat || !type) { alert('업태와 종목을 모두 입력하세요.'); return; }
-  tempSectors.push({ category: cat, type: type });
+  const code = document.getElementById('bizNewCode').value.trim();
+  tempSectors.push({ code: code, category: cat, type: type });
+  document.getElementById('bizNewCode').value = '';
   document.getElementById('bizNewCategory').value = '';
   document.getElementById('bizNewType').value = '';
   renderBizSectorsList();
