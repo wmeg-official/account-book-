@@ -1001,7 +1001,7 @@ tbody tr:hover { background: #f8fafc; }
           <option value="exempt">면세</option>
         </select>
       </div>
-      <div class="form-group txExpenseField">
+      <div class="form-group txBizField">
         <label>증빙</label>
         <select id="txEvidence" onchange="toggleCardSelect()">
           <option value="tax-invoice">세금계산서</option>
@@ -1352,12 +1352,18 @@ tbody tr:hover { background: #f8fafc; }
   <div class="modal" style="max-width:800px;">
     <h3>📊 네이버 스마트스토어 정산 업로드</h3>
     <p style="font-size:13px;color:var(--text-light);margin-bottom:16px;">
-      네이버 스마트스토어 정산 엑셀을 시트 2개(일반판매 / 구매대행)로 나눠서 올려주세요.
+      수수료상세 엑셀(항목별정산내역)을 올리면 카드/현금영수증 매출이 자동 구분됩니다.<br>
+      기존 정산 엑셀(시트 2개)도 계속 사용할 수 있습니다.
     </p>
     <div class="form-grid">
       <div class="form-group">
         <label>정산 엑셀 파일 *</label>
         <input type="file" id="ssUploadFile" accept=".xlsx,.xls" onchange="parseSmartStoreFile(this)">
+      </div>
+      <div class="form-group">
+        <label>부가세 신고 내역 (선택)</label>
+        <input type="file" id="ssVatFile" accept=".xlsx,.xls" onchange="parseSSVatFile(this)">
+        <span style="font-size:11px;color:var(--text-light);">카드/현금영수증 매출 구분용</span>
       </div>
     </div>
     <div id="ssPreview" style="display:none;">
@@ -2563,7 +2569,7 @@ function openTxModal(editId) {
     document.getElementById('txMemo').value = '';
     document.getElementById('txIsFixed').checked = false;
     document.getElementById('txTaxType').value = 'taxable';
-    document.getElementById('txEvidence').value = 'tax-invoice';
+    document.getElementById('txEvidence').value = 'none';
     document.getElementById('txCard').value = '';
     document.getElementById('txBank').value = '';
     document.getElementById('txSector').value = '';
@@ -2880,8 +2886,25 @@ function renderVat() {
 
   const txs = bizTransactions().filter(t => {
     const d = new Date(t.date);
+    const y = d.getFullYear();
     const m = d.getMonth() + 1;
-    return d.getFullYear() === year && m >= startMonth && m <= endMonth;
+    const day = d.getDate();
+    const isTaxInvIncome = t.type === 'income' && t.evidence === 'tax-invoice';
+
+    // 세금계산서 매출: 기간 마감 다음달 11일까지 해당 기간에 포함
+    if (isTaxInvIncome) {
+      let extM = endMonth + 1, extY = year;
+      if (extM > 12) { extM -= 12; extY++; }
+      if (y === extY && m === extM && day <= 11) return true;
+    }
+
+    if (y === year && m >= startMonth && m <= endMonth) {
+      // 세금계산서 매출: 시작월 1~11일은 이전 기간 확장에 해당 (중복 방지)
+      if (isTaxInvIncome && m === startMonth && day <= 11 && startMonth > 1) return false;
+      return true;
+    }
+
+    return false;
   });
 
   // 매출 (과세, 영세, 면세)
@@ -5198,16 +5221,71 @@ async function syncPull() {
 // ========== 스마트스토어 업로드 ==========
 let ssWorkbook = null;
 let ssParsedData = null;
+let ssVatData = null;
+let ssFileMode = 'legacy';
 
 function openSmartStoreUpload() {
   document.getElementById('ssUploadFile').value = '';
+  document.getElementById('ssVatFile').value = '';
   document.getElementById('ssPreview').style.display = 'none';
   document.getElementById('ssConfirmBtn').style.display = 'none';
   document.getElementById('ssSummary').innerHTML = '';
   document.getElementById('ssSheetSelect').innerHTML = '';
   ssWorkbook = null;
   ssParsedData = null;
+  ssVatData = null;
+  ssFileMode = 'legacy';
   document.getElementById('smartStoreModal').classList.add('show');
+}
+
+function parseSSVatFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      if (rows.length < 2) return;
+
+      const header = rows[0];
+      const ci = {};
+      header.forEach((h, i) => {
+        if (!h) return;
+        const ht = String(h).trim().replace(/\s+/g, '');
+        if (ht.includes('주문번호') && !ht.includes('상품')) ci.orderNo = i;
+        if (ht.includes('상품주문번호')) ci.itemNo = i;
+        if (ht.includes('총매출금액') || ht === '총매출금액') ci.totalAmt = i;
+        if (ht.includes('신용카드') || ht.includes('카드매출전표')) ci.card = i;
+        if (ht.includes('소득공제')) ci.cashDeduct = i;
+        if (ht.includes('지출증빙')) ci.cashProof = i;
+        if (ht.includes('발행제외')) ci.cashExclude = i;
+        if (ht === '기타') ci.etc = i;
+      });
+
+      const byOrder = {};
+      for (let r = 1; r < rows.length; r++) {
+        const row = rows[r];
+        if (!row || !row[ci.orderNo]) continue;
+        const orderNo = String(row[ci.orderNo]);
+        const card = parseFloat(row[ci.card]) || 0;
+        const cashReceipt = (parseFloat(row[ci.cashDeduct]) || 0) + (parseFloat(row[ci.cashProof]) || 0);
+        const cashExclude = parseFloat(row[ci.cashExclude]) || 0;
+        const etc = parseFloat(row[ci.etc]) || 0;
+        if (!byOrder[orderNo]) byOrder[orderNo] = { card: 0, cashReceipt: 0, cashExclude: 0, etc: 0 };
+        byOrder[orderNo].card += card;
+        byOrder[orderNo].cashReceipt += cashReceipt;
+        byOrder[orderNo].cashExclude += cashExclude;
+        byOrder[orderNo].etc += etc;
+      }
+      ssVatData = byOrder;
+      if (ssWorkbook) previewSmartStore();
+    } catch (err) {
+      alert('부가세 신고 파일 읽기 오류: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
 }
 
 function closeSmartStoreModal() {
@@ -5221,30 +5299,61 @@ function parseSmartStoreFile(input) {
   reader.onload = function(e) {
     try {
       ssWorkbook = XLSX.read(e.target.result, { type: 'array' });
-      const sheets = ssWorkbook.SheetNames;
-      if (sheets.length < 2) {
-        alert('시트가 2개 필요합니다 (일반판매 / 구매대행). 현재 ' + sheets.length + '개입니다.');
-        return;
+      const ws = ssWorkbook.Sheets[ssWorkbook.SheetNames[0]];
+      const firstRow = XLSX.utils.sheet_to_json(ws, { header: 1 })[0] || [];
+      const headers = firstRow.map(h => String(h || '').trim());
+
+      if (headers.includes('수수료 구분') || headers.includes('결제수단')) {
+        ssFileMode = 'fee-detail';
+        const sheets = ssWorkbook.SheetNames;
+        if (sheets.length >= 2) {
+          document.getElementById('ssSheetSelect').innerHTML = `
+            <div class="form-grid">
+              <div class="form-group">
+                <label>일반판매 시트 *</label>
+                <select id="ssSheetNormal" onchange="previewSmartStoreFeeDetail()">
+                  ${sheets.map(s => `<option value="${s}">${s}</option>`).join('')}
+                </select>
+              </div>
+              <div class="form-group">
+                <label>구매대행 시트 *</label>
+                <select id="ssSheetProxy" onchange="previewSmartStoreFeeDetail()">
+                  ${sheets.map((s, i) => `<option value="${s}" ${i === 1 ? 'selected' : ''}>${s}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+          `;
+        } else {
+          document.getElementById('ssSheetSelect').innerHTML = '';
+        }
+        document.getElementById('ssPreview').style.display = 'block';
+        previewSmartStoreFeeDetail();
+      } else {
+        ssFileMode = 'legacy';
+        const sheets = ssWorkbook.SheetNames;
+        if (sheets.length < 2) {
+          alert('시트가 2개 필요합니다 (일반판매 / 구매대행). 현재 ' + sheets.length + '개입니다.');
+          return;
+        }
+        document.getElementById('ssSheetSelect').innerHTML = `
+          <div class="form-grid">
+            <div class="form-group">
+              <label>일반판매 시트 *</label>
+              <select id="ssSheetNormal" onchange="previewSmartStore()">
+                ${sheets.map(s => `<option value="${s}">${s}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>구매대행 시트 *</label>
+              <select id="ssSheetProxy" onchange="previewSmartStore()">
+                ${sheets.map((s, i) => `<option value="${s}" ${i === 1 ? 'selected' : ''}>${s}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+        `;
+        document.getElementById('ssPreview').style.display = 'block';
+        previewSmartStore();
       }
-      // 시트 매핑 UI
-      document.getElementById('ssSheetSelect').innerHTML = `
-        <div class="form-grid">
-          <div class="form-group">
-            <label>일반판매 시트 *</label>
-            <select id="ssSheetNormal" onchange="previewSmartStore()">
-              ${sheets.map(s => `<option value="${s}">${s}</option>`).join('')}
-            </select>
-          </div>
-          <div class="form-group">
-            <label>구매대행 시트 *</label>
-            <select id="ssSheetProxy" onchange="previewSmartStore()">
-              ${sheets.map((s, i) => `<option value="${s}" ${i === 1 ? 'selected' : ''}>${s}</option>`).join('')}
-            </select>
-          </div>
-        </div>
-      `;
-      document.getElementById('ssPreview').style.display = 'block';
-      previewSmartStore();
     } catch (err) {
       alert('엑셀 파일 읽기 오류: ' + err.message);
     }
@@ -5344,12 +5453,26 @@ function previewSmartStore() {
   const lastDay = month ? new Date(parseInt(month.split('-')[0]), parseInt(month.split('-')[1]), 0).getDate() : 28;
   const monthLastDate = month ? `${month}-${String(lastDay).padStart(2, '0')}` : '';
 
+  // 부가세 신고 내역 기반 카드/현금영수증 분리
+  let normalCardAmt = 0, normalCashAmt = 0, normalEtcAmt = 0;
+  const normalOrderNos = [...new Set(normalData.map(r => r.orderNo))];
+  const proxyOrderNos = new Set(Object.keys(proxyOrders));
+  if (ssVatData) {
+    normalOrderNos.forEach(no => {
+      if (proxyOrderNos.has(no)) return;
+      const v = ssVatData[no];
+      if (v) { normalCardAmt += v.card; normalCashAmt += v.cashReceipt; normalEtcAmt += v.etc + v.cashExclude; }
+    });
+  }
+  const hasVatSplit = ssVatData && (normalCardAmt + normalCashAmt + normalEtcAmt) > 0;
+
   // 저장용 데이터
   ssParsedData = {
     normalData, proxyData, proxyOrders,
     normalTotalBase, proxyTotalBase,
     totalNpay, totalSalesFee,
-    month, monthLastDate
+    month, monthLastDate,
+    normalCardAmt, normalCashAmt, normalEtcAmt, hasVatSplit
   };
 
   // 구매대행 주문 목록 미리보기
@@ -5362,18 +5485,42 @@ function previewSmartStore() {
     const totalAmt = items.reduce((s, i) => s + i.baseAmt, 0);
     const itemNames = products.map(p => `${p.product} (${p.baseAmt.toLocaleString()}원)`).join(', ');
     const shipAmt = shipping.reduce((s, i) => s + i.baseAmt, 0);
+    const vatInfo = ssVatData && ssVatData[orderNo];
+    const evLabel = vatInfo ? (vatInfo.card > 0 ? '💳카드' : '🧾현금영수증') : '';
     proxyPreview += `<tr>
       <td>${payDate}</td>
       <td>${buyer}</td>
       <td style="font-size:12px;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${itemNames}</td>
       <td>${shipAmt > 0 ? shipAmt.toLocaleString() + '원' : '-'}</td>
       <td><b>${totalAmt.toLocaleString()}원</b></td>
+      ${ssVatData ? `<td style="font-size:11px;">${evLabel}</td>` : ''}
     </tr>`;
   });
 
+  // 매출 미리보기 텍스트
+  let salesPreview = '';
+  if (hasVatSplit) {
+    const cardSupply = Math.round(normalCardAmt / 1.1);
+    const cashSupply = Math.round(normalCashAmt / 1.1);
+    const cardVat = normalCardAmt - cardSupply;
+    const cashVat = normalCashAmt - cashSupply;
+    const txCount = (normalCardAmt > 0 ? 1 : 0) + (normalCashAmt > 0 ? 1 : 0);
+    salesPreview = `<p style="margin-bottom:4px;"><b>1. 거래내역 - 매출 ${txCount}건 (증빙 구분)</b></p>`;
+    if (normalCardAmt > 0) salesPreview += `<p style="font-size:13px;color:var(--text-light);">💳 ${monthLastDate} | 카드매출 | ${normalCardAmt.toLocaleString()}원 (공급 ${cardSupply.toLocaleString()} + VAT ${cardVat.toLocaleString()})</p>`;
+    if (normalCashAmt > 0) salesPreview += `<p style="font-size:13px;color:var(--text-light);margin-bottom:12px;">🧾 ${monthLastDate} | 현금영수증매출 | ${normalCashAmt.toLocaleString()}원 (공급 ${cashSupply.toLocaleString()} + VAT ${cashVat.toLocaleString()})</p>`;
+  } else {
+    salesPreview = `<p style="margin-bottom:4px;"><b>1. 거래내역 - 매출 1건</b></p>
+      <p style="font-size:13px;color:var(--text-light);margin-bottom:12px;">
+        📅 ${monthLastDate} | 스마트스토어 일반판매 | ${normalTotalBase.toLocaleString()}원 (공급가액 ${Math.round(normalTotalBase / 1.1).toLocaleString()}원 + VAT ${(normalTotalBase - Math.round(normalTotalBase / 1.1)).toLocaleString()}원)
+      </p>`;
+  }
+
   document.getElementById('ssSummary').innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
-      <div class="card"><div class="card-label">일반판매 매출</div><div class="card-value primary">${normalTotalBase.toLocaleString()}원</div><div style="font-size:12px;color:var(--text-light);">상품 ${normalProducts.length}건 + 배송비 ${normalShipping.length}건</div></div>
+      <div class="card"><div class="card-label">일반판매 매출</div><div class="card-value primary">${normalTotalBase.toLocaleString()}원</div>
+        <div style="font-size:12px;color:var(--text-light);">상품 ${normalProducts.length}건 + 배송비 ${normalShipping.length}건</div>
+        ${hasVatSplit ? `<div style="font-size:11px;margin-top:4px;">💳 ${normalCardAmt.toLocaleString()} / 🧾 ${normalCashAmt.toLocaleString()}</div>` : ''}
+      </div>
       <div class="card"><div class="card-label">구매대행 주문</div><div class="card-value primary">${proxyTotalBase.toLocaleString()}원</div><div style="font-size:12px;color:var(--text-light);">${Object.keys(proxyOrders).length}건 (항목 ${proxyData.filter(r => r.type === '상품주문').length}개)</div></div>
       <div class="card"><div class="card-label">Npay 수수료</div><div class="card-value expense">${totalNpay.toLocaleString()}원</div></div>
       <div class="card"><div class="card-label">매출연동 수수료</div><div class="card-value expense">${totalSalesFee.toLocaleString()}원</div></div>
@@ -5381,14 +5528,11 @@ function previewSmartStore() {
 
     <h4 style="margin-bottom:8px;">등록 예정 내역</h4>
     <div class="report-section" style="padding:12px;">
-      <p style="margin-bottom:4px;"><b>1. 거래내역 - 매출 1건</b></p>
-      <p style="font-size:13px;color:var(--text-light);margin-bottom:12px;">
-        📅 ${monthLastDate} | 스마트스토어 일반판매 | ${normalTotalBase.toLocaleString()}원 (공급가액 ${Math.round(normalTotalBase / 1.1).toLocaleString()}원 + VAT ${(normalTotalBase - Math.round(normalTotalBase / 1.1)).toLocaleString()}원)
-      </p>
+      ${salesPreview}
       <p style="margin-bottom:4px;"><b>2. 구매대행 주문 ${Object.keys(proxyOrders).length}건</b></p>
       ${Object.keys(proxyOrders).length > 0 ? `
       <div style="max-height:200px;overflow-y:auto;margin-bottom:12px;">
-        <table style="font-size:13px;"><thead><tr><th>주문일</th><th>고객</th><th>상품</th><th>배송비</th><th>합계</th></tr></thead>
+        <table style="font-size:13px;"><thead><tr><th>주문일</th><th>고객</th><th>상품</th><th>배송비</th><th>합계</th>${ssVatData ? '<th>증빙</th>' : ''}</tr></thead>
         <tbody>${proxyPreview}</tbody></table>
       </div>` : '<p style="font-size:13px;color:var(--text-light);margin-bottom:12px;">구매대행 주문 없음</p>'}
       <p style="margin-bottom:4px;"><b>3. 거래내역 - 비용 2건</b></p>
@@ -5403,35 +5547,40 @@ function previewSmartStore() {
 }
 
 async function confirmSmartStoreUpload() {
+  if (ssFileMode === 'fee-detail') return confirmSmartStoreFeeDetail();
   if (!ssParsedData) return;
   if (!confirm('위 내용대로 등록하시겠습니까?')) return;
 
-  const { normalData, proxyOrders, normalTotalBase, totalNpay, totalSalesFee, month, monthLastDate } = ssParsedData;
+  const { normalData, proxyOrders, normalTotalBase, totalNpay, totalSalesFee, month, monthLastDate, normalCardAmt, normalCashAmt, hasVatSplit } = ssParsedData;
   const bizId = currentBizId();
   const newTxs = [];
+  let incomeTxCount = 0;
 
-  // 1. 일반판매 매출 (정산기준금액 합산, 월 마지막일)
+  // 1. 일반판매 매출
   if (normalTotalBase > 0) {
-    const supply = Math.round(normalTotalBase / 1.1);
-    const vat = normalTotalBase - supply;
-    const tx = {
-      id: genId(),
-      bizId,
-      date: monthLastDate,
-      type: 'income',
-      category: '스마트스토어 매출',
-      partner: '네이버 스마트스토어',
-      amount: supply,
-      vat: vat,
-      taxType: 'taxable',
-      evidence: 'none',
-      card: '',
-      bank: '',
-      sector: '',
-      memo: `[자동등록] ${month} 스마트스토어 일반판매 (상품 ${normalData.filter(r => r.type === '상품주문').length}건)`
-    };
-    DATA.transactions.push(tx);
-    newTxs.push(tx);
+    if (hasVatSplit && (normalCardAmt > 0 || normalCashAmt > 0)) {
+      const productCount = normalData.filter(r => r.type === '상품주문').length;
+      if (normalCardAmt > 0) {
+        const supply = Math.round(normalCardAmt / 1.1);
+        const tx = { id: genId(), bizId, date: monthLastDate, type: 'income', category: '스마트스토어 매출', partner: '네이버 스마트스토어',
+          amount: supply, vat: normalCardAmt - supply, taxType: 'taxable', evidence: 'card', card: '', bank: '', sector: '',
+          memo: `[자동등록] ${month} 스마트스토어 카드매출` };
+        DATA.transactions.push(tx); newTxs.push(tx); incomeTxCount++;
+      }
+      if (normalCashAmt > 0) {
+        const supply = Math.round(normalCashAmt / 1.1);
+        const tx = { id: genId(), bizId, date: monthLastDate, type: 'income', category: '스마트스토어 매출', partner: '네이버 스마트스토어',
+          amount: supply, vat: normalCashAmt - supply, taxType: 'taxable', evidence: 'cash-receipt', card: '', bank: '', sector: '',
+          memo: `[자동등록] ${month} 스마트스토어 현금영수증매출` };
+        DATA.transactions.push(tx); newTxs.push(tx); incomeTxCount++;
+      }
+    } else {
+      const supply = Math.round(normalTotalBase / 1.1);
+      const tx = { id: genId(), bizId, date: monthLastDate, type: 'income', category: '스마트스토어 매출', partner: '네이버 스마트스토어',
+        amount: supply, vat: normalTotalBase - supply, taxType: 'taxable', evidence: 'none', card: '', bank: '', sector: '',
+        memo: `[자동등록] ${month} 스마트스토어 일반판매 (상품 ${normalData.filter(r => r.type === '상품주문').length}건)` };
+      DATA.transactions.push(tx); newTxs.push(tx); incomeTxCount++;
+    }
   }
 
   // 2. 구매대행 주문 등록 (주문번호별)
@@ -5452,6 +5601,9 @@ async function confirmSmartStoreUpload() {
     const customerAmount = items.reduce((s, i) => s + i.baseAmt, 0);
     const autoDesc = proxyItems.map(i => i.name).join(', ');
 
+    const vatInfo = ssVatData && ssVatData[orderNo];
+    const proxyEvidence = vatInfo ? (vatInfo.card > 0 ? 'card' : vatInfo.cashReceipt > 0 ? 'cash-receipt' : 'none') : 'none';
+
     DATA.proxyOrders.push({
       id: 'proxy_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       bizId,
@@ -5469,7 +5621,8 @@ async function confirmSmartStoreUpload() {
       commission: 0,
       settleDate: null,
       purchaseOrderNo: '',
-      txId: null
+      txId: null,
+      evidence: proxyEvidence
     });
     proxyCount++;
   });
@@ -5530,7 +5683,224 @@ async function confirmSmartStoreUpload() {
   closeSmartStoreModal();
   renderTransactions();
 
-  alert(`등록 완료!\n\n• 일반판매 매출: 1건\n• 구매대행 주문: ${proxyCount}건\n• 수수료 비용: ${totalNpay > 0 ? 1 : 0}건 + ${totalSalesFee > 0 ? 1 : 0}건`);
+  const evidenceNote = hasVatSplit ? ' (카드/현금영수증 구분)' : '';
+  alert(`등록 완료!\n\n• 일반판매 매출: ${incomeTxCount}건${evidenceNote}\n• 구매대행 주문: ${proxyCount}건\n• 수수료 비용: ${totalNpay > 0 ? 1 : 0}건 + ${totalSalesFee > 0 ? 1 : 0}건`);
+}
+
+// ========== 스마트스토어 수수료상세 형식 ==========
+function parseFeeDetailSheet(sheetName) {
+  const ws = ssWorkbook.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+  if (rows.length < 2) return {};
+
+  const header = rows[0];
+  const ci = {};
+  header.forEach((h, i) => {
+    if (!h) return;
+    const ht = String(h).trim();
+    if (ht === '주문번호') ci.orderNo = i;
+    if (ht === '상품주문번호') ci.itemNo = i;
+    if (ht === '구분') ci.type = i;
+    if (ht === '상품명') ci.product = i;
+    if (ht === '구매자명') ci.buyer = i;
+    if (ht === '결제일') ci.payDate = i;
+    if (ht === '정산기준일') ci.taxDate = i;
+    if (ht === '수수료 기준금액') ci.baseAmt = i;
+    if (ht === '수수료 구분') ci.feeType = i;
+    if (ht === '결제수단') ci.payMethod = i;
+    if (ht === '수수료금액') ci.feeAmt = i;
+  });
+
+  const orders = {};
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || row[ci.orderNo] == null) continue;
+    const ono = String(row[ci.orderNo]);
+    if (!orders[ono]) orders[ono] = { buyer: '', payDate: '', taxDate: '', items: [], cardAmt: 0, cashAmt: 0, npayFee: 0, salesFee: 0 };
+    const o = orders[ono];
+    o.buyer = o.buyer || String(row[ci.buyer] || '');
+    o.payDate = o.payDate || String(row[ci.payDate] || '');
+    o.taxDate = o.taxDate || String(row[ci.taxDate] || '');
+    const baseAmt = parseFloat(row[ci.baseAmt]) || 0;
+    const feeAmt = parseFloat(row[ci.feeAmt]) || 0;
+    const feeType = String(row[ci.feeType] || '');
+    const payMethod = String(row[ci.payMethod] || '');
+    const itemType = String(row[ci.type] || '');
+    const product = String(row[ci.product] || '');
+
+    if (feeType.includes('Npay')) {
+      if (payMethod.includes('신용카드')) o.cardAmt += baseAmt;
+      else o.cashAmt += baseAmt;
+      o.npayFee += feeAmt;
+    } else if (feeType.includes('판매')) {
+      o.salesFee += feeAmt;
+    }
+
+    const itemKey = String(row[ci.itemNo] || '') + '_' + itemType;
+    if (!o.items.find(it => it.key === itemKey)) {
+      o.items.push({ key: itemKey, type: itemType, product, baseAmt });
+    }
+  }
+  return orders;
+}
+
+function previewSmartStoreFeeDetail() {
+  const sheets = ssWorkbook.SheetNames;
+  const hasProxy = sheets.length >= 2;
+
+  let normalSheetName, proxySheetName;
+  if (hasProxy) {
+    normalSheetName = document.getElementById('ssSheetNormal').value;
+    proxySheetName = document.getElementById('ssSheetProxy').value;
+    if (normalSheetName === proxySheetName) {
+      document.getElementById('ssSummary').innerHTML = '<p style="color:var(--danger);">일반판매와 구매대행 시트가 같습니다.</p>';
+      document.getElementById('ssConfirmBtn').style.display = 'none';
+      return;
+    }
+  } else {
+    normalSheetName = sheets[0];
+  }
+
+  const normalOrders = parseFeeDetailSheet(normalSheetName);
+  const proxyOrders = hasProxy ? parseFeeDetailSheet(proxySheetName) : {};
+
+  let totalCard = 0, totalCash = 0, totalNpay = 0, totalSales = 0;
+  Object.values(normalOrders).forEach(o => {
+    totalCard += o.cardAmt; totalCash += o.cashAmt;
+    totalNpay += o.npayFee; totalSales += o.salesFee;
+  });
+  Object.values(proxyOrders).forEach(o => {
+    totalNpay += o.npayFee; totalSales += o.salesFee;
+  });
+  totalNpay = Math.abs(totalNpay);
+  totalSales = Math.abs(totalSales);
+
+  const proxyTotalBase = Object.values(proxyOrders).reduce((s, o) => s + o.cardAmt + o.cashAmt, 0);
+  const proxyCount = Object.keys(proxyOrders).length;
+
+  const allDates = [...Object.values(normalOrders), ...Object.values(proxyOrders)].map(o => formatSSDate(o.taxDate)).filter(Boolean).sort();
+  const month = allDates.length > 0 ? allDates[0].slice(0, 7) : '';
+  const lastDay = month ? new Date(parseInt(month.split('-')[0]), parseInt(month.split('-')[1]), 0).getDate() : 28;
+  const monthLastDate = month ? `${month}-${String(lastDay).padStart(2, '0')}` : '';
+
+  ssParsedData = { normalOrders, proxyOrders, totalCard, totalCash, totalNpay, totalSales, month, monthLastDate };
+
+  // 구매대행 미리보기
+  let proxyPreview = '';
+  Object.entries(proxyOrders).forEach(([ono, o]) => {
+    const amt = o.cardAmt + o.cashAmt;
+    const ev = o.cardAmt > 0 ? '💳카드' : '🧾현금영수증';
+    const products = o.items.filter(i => i.type === '상품주문').map(i => i.product).join(', ');
+    const shipAmt = o.items.filter(i => i.type === '배송비').reduce((s, i) => s + i.baseAmt, 0);
+    proxyPreview += `<tr>
+      <td>${formatSSDate(o.payDate || o.taxDate)}</td><td>${o.buyer}</td>
+      <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${products}</td>
+      <td style="text-align:right;">${shipAmt > 0 ? shipAmt.toLocaleString() : '-'}</td>
+      <td style="text-align:right;"><b>${amt.toLocaleString()}</b></td>
+      <td style="font-size:11px;">${ev}</td>
+    </tr>`;
+  });
+
+  const cardSupply = Math.round(totalCard / 1.1);
+  const cashSupply = Math.round(totalCash / 1.1);
+  const incomeTxCount = (totalCard > 0 ? 1 : 0) + (totalCash > 0 ? 1 : 0);
+
+  document.getElementById('ssSummary').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px;">
+      <div class="card"><div class="card-label">💳 카드매출</div><div class="card-value income">${totalCard.toLocaleString()}원</div></div>
+      <div class="card"><div class="card-label">🧾 현금영수증매출</div><div class="card-value income">${totalCash.toLocaleString()}원</div></div>
+      ${hasProxy ? `<div class="card"><div class="card-label">구매대행 주문</div><div class="card-value primary">${proxyTotalBase.toLocaleString()}원</div><div style="font-size:12px;color:var(--text-light);">${proxyCount}건</div></div>` : ''}
+      <div class="card"><div class="card-label">Npay 수수료</div><div class="card-value expense">${totalNpay.toLocaleString()}원</div></div>
+      <div class="card"><div class="card-label">판매 수수료</div><div class="card-value expense">${totalSales.toLocaleString()}원</div></div>
+    </div>
+    <h4 style="margin-bottom:8px;">등록 예정 내역</h4>
+    <div class="report-section" style="padding:12px;">
+      <p style="margin-bottom:4px;"><b>1. 매출 ${incomeTxCount}건 (증빙 구분)</b></p>
+      ${totalCard > 0 ? `<p style="font-size:13px;color:var(--text-light);">💳 ${monthLastDate} | 카드매출 ${totalCard.toLocaleString()}원 (공급 ${cardSupply.toLocaleString()} + VAT ${(totalCard - cardSupply).toLocaleString()})</p>` : ''}
+      ${totalCash > 0 ? `<p style="font-size:13px;color:var(--text-light);margin-bottom:12px;">🧾 ${monthLastDate} | 현금영수증매출 ${totalCash.toLocaleString()}원 (공급 ${cashSupply.toLocaleString()} + VAT ${(totalCash - cashSupply).toLocaleString()})</p>` : ''}
+      ${hasProxy && proxyCount > 0 ? `
+      <p style="margin-bottom:4px;"><b>2. 구매대행 주문 ${proxyCount}건</b></p>
+      <div style="max-height:200px;overflow-y:auto;margin-bottom:12px;">
+        <table style="font-size:13px;"><thead><tr><th>주문일</th><th>고객</th><th>상품</th><th>배송비</th><th>합계</th><th>결제</th></tr></thead>
+        <tbody>${proxyPreview}</tbody></table>
+      </div>` : ''}
+      <p style="margin-bottom:4px;"><b>${hasProxy ? '3' : '2'}. 비용 ${(totalNpay > 0 ? 1 : 0) + (totalSales > 0 ? 1 : 0)}건</b></p>
+      <p style="font-size:13px;color:var(--text-light);">
+        ${totalNpay > 0 ? `📅 ${monthLastDate} | Npay 수수료: ${totalNpay.toLocaleString()}원<br>` : ''}
+        ${totalSales > 0 ? `📅 ${monthLastDate} | 판매 수수료: ${totalSales.toLocaleString()}원` : ''}
+      </p>
+    </div>
+  `;
+  document.getElementById('ssConfirmBtn').style.display = 'inline-flex';
+}
+
+async function confirmSmartStoreFeeDetail() {
+  if (!ssParsedData) return;
+  if (!confirm('위 내용대로 등록하시겠습니까?')) return;
+
+  const { normalOrders, proxyOrders, totalCard, totalCash, totalNpay, totalSales, month, monthLastDate } = ssParsedData;
+  const bizId = currentBizId();
+  const newTxs = [];
+
+  if (totalCard > 0) {
+    const supply = Math.round(totalCard / 1.1);
+    const tx = { id: genId(), bizId, date: monthLastDate, type: 'income', category: '스마트스토어 매출', partner: '네이버 스마트스토어',
+      amount: supply, vat: totalCard - supply, taxType: 'taxable', evidence: 'card', card: '', bank: '', sector: '',
+      memo: `[자동등록] ${month} 스마트스토어 카드매출` };
+    DATA.transactions.push(tx); newTxs.push(tx);
+  }
+  if (totalCash > 0) {
+    const supply = Math.round(totalCash / 1.1);
+    const tx = { id: genId(), bizId, date: monthLastDate, type: 'income', category: '스마트스토어 매출', partner: '네이버 스마트스토어',
+      amount: supply, vat: totalCash - supply, taxType: 'taxable', evidence: 'cash-receipt', card: '', bank: '', sector: '',
+      memo: `[자동등록] ${month} 스마트스토어 현금영수증매출` };
+    DATA.transactions.push(tx); newTxs.push(tx);
+  }
+
+  // 구매대행 주문 등록
+  if (!DATA.proxyOrders) DATA.proxyOrders = [];
+  let proxyCount = 0;
+  Object.entries(proxyOrders).forEach(([orderNo, o]) => {
+    const proxyItems = o.items.filter(i => i.type === '상품주문').map(i => ({ name: i.product, amount: i.baseAmt }));
+    const shippingCost = o.items.filter(i => i.type === '배송비').reduce((s, i) => s + i.baseAmt, 0);
+    const customerAmount = o.cardAmt + o.cashAmt;
+    const evidence = o.cardAmt > 0 ? 'card' : o.cashAmt > 0 ? 'cash-receipt' : 'none';
+
+    DATA.proxyOrders.push({
+      id: 'proxy_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      bizId, orderDate: formatSSDate(o.payDate || o.taxDate), orderNo,
+      customer: o.buyer, customerAmount, items: proxyItems, shippingCost,
+      platform: '스마트스토어', description: proxyItems.map(i => i.name).join(', '),
+      settled: false, purchaseAmount: 0, extraCost: 0, commission: 0,
+      settleDate: null, purchaseOrderNo: '', txId: null, evidence
+    });
+    proxyCount++;
+  });
+
+  if (totalNpay > 0) {
+    const supply = Math.round(totalNpay / 1.1);
+    const tx = { id: genId(), bizId, date: monthLastDate, type: 'expense', category: 'Npay 수수료', partner: '네이버 스마트스토어',
+      amount: supply, vat: totalNpay - supply, taxType: 'taxable', evidence: 'tax-invoice', card: '', bank: '', sector: '',
+      memo: `[자동등록] ${month} Npay 결제수수료` };
+    DATA.transactions.push(tx); newTxs.push(tx);
+  }
+  if (totalSales > 0) {
+    const supply = Math.round(totalSales / 1.1);
+    const tx = { id: genId(), bizId, date: monthLastDate, type: 'expense', category: '매출연동 수수료', partner: '네이버 스마트스토어',
+      amount: supply, vat: totalSales - supply, taxType: 'taxable', evidence: 'tax-invoice', card: '', bank: '', sector: '',
+      memo: `[자동등록] ${month} 판매수수료` };
+    DATA.transactions.push(tx); newTxs.push(tx);
+  }
+
+  saveData();
+  for (const tx of newTxs) await autoSyncTx(tx);
+
+  closeSmartStoreModal();
+  renderTransactions();
+
+  const incomeCnt = (totalCard > 0 ? 1 : 0) + (totalCash > 0 ? 1 : 0);
+  const expCnt = (totalNpay > 0 ? 1 : 0) + (totalSales > 0 ? 1 : 0);
+  alert(`등록 완료!\n\n• 카드매출: ${totalCard > 0 ? totalCard.toLocaleString() + '원' : '-'}\n• 현금영수증매출: ${totalCash > 0 ? totalCash.toLocaleString() + '원' : '-'}\n• 구매대행 주문: ${proxyCount}건\n• 수수료 비용: ${expCnt}건\n\n총 ${incomeCnt + expCnt + proxyCount}건 등록`);
 }
 
 // ========== 쿠팡 업로드 ==========
