@@ -797,17 +797,20 @@ tbody tr:hover { background: #f8fafc; }
       <h2 class="page-title">거래명세서</h2>
 
       <div class="card" style="margin-bottom:20px;">
-        <h4 style="margin-bottom:12px;">거래명세서 작성</h4>
+        <div style="display:flex;gap:8px;margin-bottom:16px;">
+          <button class="btn btn-primary" id="btnDocInvoice" onclick="switchDocType('invoice')" style="flex:1;">거래명세서</button>
+          <button class="btn btn-outline" id="btnDocPrice" onclick="switchDocType('price')" style="flex:1;">단가표</button>
+        </div>
         <div class="form-grid">
           <div class="form-group">
             <label>작성일자 *</label>
             <input type="date" id="stmtDate">
           </div>
-          <div class="form-group">
+          <div class="form-group stmt-invoice-only">
             <label>거래명세서 번호</label>
             <input type="text" id="stmtNo" placeholder="예: 2026-001">
           </div>
-          <div class="form-group">
+          <div class="form-group stmt-invoice-only">
             <label>구분</label>
             <select id="stmtType">
               <option value="청구">청구</option>
@@ -838,17 +841,23 @@ tbody tr:hover { background: #f8fafc; }
               <option value="EUR">€ 유로 (EUR)</option>
             </select>
           </div>
+          <div class="form-group">
+            <label>업종</label>
+            <select id="stmtSector">
+              <option value="">-- 사업자 선택 후 표시 --</option>
+            </select>
+          </div>
         </div>
 
-        <h5 style="margin:16px 0 8px; color:var(--text-light);">공급받는자 (거래처)</h5>
-        <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;">
+        <h5 class="stmt-invoice-only" style="margin:16px 0 8px; color:var(--text-light);">공급받는자 (거래처)</h5>
+        <div class="stmt-invoice-only" style="display:flex;gap:8px;margin-bottom:12px;align-items:center;">
           <select id="stmtBuyerSelect" onchange="onBuyerSelect()" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;">
             <option value="">-- 저장된 거래처 선택 --</option>
           </select>
           <button class="btn btn-outline btn-sm" onclick="saveCurrentBuyer()" title="현재 거래처 저장">💾 저장</button>
           <button class="btn btn-danger btn-sm" onclick="deleteSelectedBuyer()" title="선택 거래처 삭제">🗑️</button>
         </div>
-        <div class="form-grid">
+        <div class="form-grid stmt-invoice-only">
           <div class="form-group">
             <label>상호 *</label>
             <input type="text" id="stmtBuyerName" placeholder="거래처 상호명">
@@ -886,7 +895,7 @@ tbody tr:hover { background: #f8fafc; }
           <button class="btn btn-outline btn-sm" onclick="addStmtItem()">+ 품목 추가</button>
         </div>
 
-        <div style="margin-top:16px;display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div class="stmt-invoice-only" style="margin-top:16px;display:flex;align-items:center;gap:8px;margin-bottom:8px;">
           <input type="checkbox" id="stmtShowBank" onchange="document.getElementById('stmtBankWrap').style.display=this.checked?'':'none'">
           <label for="stmtShowBank" style="margin:0;cursor:pointer;">입금 계좌 표시</label>
         </div>
@@ -911,7 +920,7 @@ tbody tr:hover { background: #f8fafc; }
         </div>
 
         <div class="data-actions" style="margin-top:20px;">
-          <button class="btn btn-primary" onclick="previewStatement()">미리보기</button>
+          <button class="btn btn-primary" onclick="currentDocType==='price'?previewPriceList():previewStatement()">미리보기</button>
           <button class="btn btn-outline" onclick="resetStatement()">초기화</button>
         </div>
       </div>
@@ -942,7 +951,7 @@ tbody tr:hover { background: #f8fafc; }
 <div id="stmtModal" class="modal-overlay" style="z-index:200;">
   <div class="modal" style="max-width:800px;padding:0;background:#fff;">
     <div style="padding:16px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-      <h3 style="margin:0;">거래명세서 미리보기</h3>
+      <h3 style="margin:0;" id="stmtModalTitle">거래명세서 미리보기</h3>
       <div class="btn-group">
         <button class="btn btn-primary" onclick="printStatement()">🖨️ 인쇄 / PDF</button>
         <button class="btn btn-outline" onclick="closeStmtModal()">닫기</button>
@@ -6287,6 +6296,94 @@ async function confirmEtsyUpload() {
 // ========== 거래명세서 ==========
 let stmtItemCount = 0;
 let currentStmtId = null;
+let currentDocType = 'invoice';
+
+function switchDocType(type) {
+  currentDocType = type;
+  const isPrice = type === 'price';
+  document.getElementById('btnDocInvoice').className = isPrice ? 'btn btn-outline' : 'btn btn-primary';
+  document.getElementById('btnDocPrice').className = isPrice ? 'btn btn-primary' : 'btn btn-outline';
+  document.querySelectorAll('.stmt-invoice-only').forEach(el => el.style.display = isPrice ? 'none' : '');
+}
+
+function previewPriceList() {
+  const biz = currentBiz();
+  if (!biz) { alert('사업자를 선택하세요.'); return; }
+  const date = document.getElementById('stmtDate').value;
+  const items = getStmtItems();
+  if (!date || items.length === 0) { alert('작성일자와 품목을 입력하세요.'); return; }
+
+  const sectorVal = document.getElementById('stmtSector').value;
+  const sectors = sectorVal === '__all__' || !sectorVal
+    ? (biz.sectors || []).map(s => s.category).join(', ')
+    : (() => { const s = (biz.sectors || [])[parseInt(sectorVal)]; return s ? s.category + (s.item ? ', ' + s.item : '') : ''; })();
+  const lang = document.getElementById('stmtLang').value;
+  const isEn = lang === 'en';
+  const cur = getStmtCurrency();
+  const memo = document.getElementById('stmtMemo').value.trim();
+  const ownerName = isEn ? (biz.owner === '박재형' || !biz.owner ? 'Jaehyoung Park' : biz.owner) : (biz.owner || '박재형');
+  const fmtDate = isEn ? date : date.replace(/-/g, '. ') + '.';
+  const fmtCur = v => v !== '' && typeof v === 'number' ? cur + v.toLocaleString() : '';
+
+  const padded = [...items];
+  while (padded.length < 5) padded.push({ name: '', spec: '', qty: '', price: '', supply: '', vat: '' });
+
+  const itemRows = padded.map((item, i) => `<tr>
+    <td class="center">${item.name ? i + 1 : ''}</td>
+    <td class="left">${item.name}</td>
+    <td class="center">${item.spec || ''}</td>
+    <td>${fmtCur(item.price)}</td>
+    <td>${item.name && item.qty ? item.qty : ''}</td>
+  </tr>`).join('');
+
+  const html = isEn ? `<div class="stmt">
+    <div class="stmt-title">PRICE LIST</div>
+    <div class="stmt-header">
+      <table class="stmt-party" style="width:100%;">
+        <tr><th>Company</th><td>${biz.name}</td><th>Reg. No.</th><td>${biz.regNo || ''}</td></tr>
+        <tr><th>Rep.</th><td>${ownerName}</td><th>Type</th><td>${sectors}</td></tr>
+      </table>
+    </div>
+    <div style="text-align:right;font-size:13px;margin-bottom:8px;"><b>Date:</b> ${fmtDate}</div>
+    <table class="stmt-items">
+      <thead><tr>
+        <th style="width:30px;">No</th><th>Product</th><th style="width:80px;">Spec</th>
+        <th style="width:100px;">Unit price</th><th style="width:60px;">MOQ</th>
+      </tr></thead>
+      <tbody>${itemRows}</tbody>
+    </table>
+    ${memo ? `<div class="stmt-footer" style="margin-top:12px;"><b>Remarks:</b> ${memo}</div>` : ''}
+    <div style="margin-top:32px;text-align:center;font-size:13px;">
+      <div style="margin-bottom:40px;"></div>
+      <div style="border-top:1px solid #999;display:inline-block;padding-top:4px;min-width:200px;">${biz.name}</div>
+    </div>
+  </div>` : `<div class="stmt">
+    <div class="stmt-title">단 가 표</div>
+    <div class="stmt-header">
+      <table class="stmt-party" style="width:100%;">
+        <tr><th>상 호</th><td>${biz.name}</td><th>등록번호</th><td>${biz.regNo || ''}</td></tr>
+        <tr><th>대 표</th><td>${ownerName}</td><th>업 태</th><td>${sectors}</td></tr>
+      </table>
+    </div>
+    <div style="text-align:right;font-size:13px;margin-bottom:8px;"><b>작성일자:</b> ${fmtDate}</div>
+    <table class="stmt-items">
+      <thead><tr>
+        <th style="width:30px;">No</th><th>품 명</th><th style="width:80px;">규 격</th>
+        <th style="width:100px;">단 가</th><th style="width:60px;">MOQ</th>
+      </tr></thead>
+      <tbody>${itemRows}</tbody>
+    </table>
+    ${memo ? `<div class="stmt-footer" style="margin-top:12px;"><b>비고:</b> ${memo}</div>` : ''}
+    <div style="margin-top:32px;text-align:center;font-size:13px;">
+      <div style="margin-bottom:40px;"></div>
+      <div style="border-top:1px solid #999;display:inline-block;padding-top:4px;min-width:200px;">${biz.name}</div>
+    </div>
+  </div>`;
+
+  document.getElementById('stmtModalTitle').textContent = isEn ? 'Price list preview' : '단가표 미리보기';
+  document.getElementById('stmtPrintArea').innerHTML = html;
+  document.getElementById('stmtModal').classList.add('show');
+}
 
 function renderStatement() {
   if (!document.getElementById('stmtDate').value) {
@@ -6294,7 +6391,24 @@ function renderStatement() {
   }
   if (stmtItemCount === 0) addStmtItem();
   populateBuyerSelect();
+  populateStmtSector();
   renderSavedStatements();
+}
+
+function populateStmtSector() {
+  const biz = currentBiz();
+  const sel = document.getElementById('stmtSector');
+  if (!biz || !biz.sectors || biz.sectors.length === 0) {
+    sel.innerHTML = '<option value="">업종 없음</option>';
+    return;
+  }
+  const prev = sel.value;
+  sel.innerHTML = '<option value="__all__">전체 (' + biz.sectors.length + '개)</option>';
+  biz.sectors.forEach((s, i) => {
+    const label = s.category + (s.item ? ' | ' + s.item : '');
+    sel.innerHTML += `<option value="${i}">${label}</option>`;
+  });
+  if (prev && sel.querySelector(`option[value="${prev}"]`)) sel.value = prev;
 }
 
 // ── 거래처 저장/불러오기 ──
@@ -6556,7 +6670,10 @@ function previewStatement() {
   const totalVat = items.reduce((s, i) => s + i.vat, 0);
   const totalAmount = totalSupply + totalVat;
 
-  const sectors = (biz.sectors || []).map(s => s.category).join(', ') || '';
+  const sectorVal = document.getElementById('stmtSector').value;
+  const sectors = sectorVal === '__all__' || !sectorVal
+    ? (biz.sectors || []).map(s => s.category).join(', ')
+    : (() => { const s = (biz.sectors || [])[parseInt(sectorVal)]; return s ? s.category + (s.item ? ', ' + s.item : '') : ''; })();
   const lang = document.getElementById('stmtLang').value;
   const isEn = lang === 'en';
   const exempt = isStmtExempt();
