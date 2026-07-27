@@ -883,10 +883,10 @@ tbody tr:hover { background: #f8fafc; }
               <tr style="background:#f8fafc;">
                 <th style="padding:8px;text-align:left;border-bottom:1px solid var(--border);">품명</th>
                 <th style="padding:8px;text-align:left;border-bottom:1px solid var(--border);">규격</th>
-                <th style="padding:8px;text-align:right;border-bottom:1px solid var(--border);">수량</th>
+                <th id="stmtQtyHeader" style="padding:8px;text-align:right;border-bottom:1px solid var(--border);">수량</th>
                 <th style="padding:8px;text-align:right;border-bottom:1px solid var(--border);">단가</th>
-                <th style="padding:8px;text-align:right;border-bottom:1px solid var(--border);">공급가액</th>
-                <th id="stmtVatHeader" style="padding:8px;text-align:right;border-bottom:1px solid var(--border);">세액</th>
+                <th id="stmtSupplyHeader" class="stmt-invoice-only-col" style="padding:8px;text-align:right;border-bottom:1px solid var(--border);">공급가액</th>
+                <th id="stmtVatHeader" class="stmt-invoice-only-col" style="padding:8px;text-align:right;border-bottom:1px solid var(--border);">세액</th>
                 <th style="padding:8px;border-bottom:1px solid var(--border);width:40px;"></th>
               </tr>
             </thead>
@@ -6304,6 +6304,11 @@ function switchDocType(type) {
   document.getElementById('btnDocInvoice').className = isPrice ? 'btn btn-outline' : 'btn btn-primary';
   document.getElementById('btnDocPrice').className = isPrice ? 'btn btn-primary' : 'btn btn-outline';
   document.querySelectorAll('.stmt-invoice-only').forEach(el => el.style.display = isPrice ? 'none' : '');
+  document.querySelectorAll('.stmt-invoice-only-col').forEach(el => el.style.display = isPrice ? 'none' : '');
+  document.getElementById('stmtQtyHeader').textContent = isPrice ? 'MOQ' : '수량';
+  document.getElementById('stmtItemsBody').innerHTML = '';
+  stmtItemCount = 0;
+  addStmtItem();
 }
 
 function previewPriceList() {
@@ -6578,8 +6583,8 @@ function addStmtItem() {
     <td><input type="text" style="width:80px;padding:6px;border:1px solid #ddd;border-radius:4px;" placeholder="규격"></td>
     <td><input type="number" style="width:70px;padding:6px;border:1px solid #ddd;border-radius:4px;text-align:right;" value="1" min="1" oninput="calcStmtRow(this)"></td>
     <td><input type="number" style="width:100px;padding:6px;border:1px solid #ddd;border-radius:4px;text-align:right;" placeholder="0" oninput="calcStmtRow(this)"></td>
-    <td style="text-align:right;font-weight:600;padding:8px;" class="stmtSupply">0</td>
-    <td style="text-align:right;padding:8px;${isStmtExempt() ? 'display:none;' : ''}" class="stmtVat">0</td>
+    <td style="text-align:right;font-weight:600;padding:8px;${currentDocType==='price'?'display:none;':''}" class="stmtSupply stmt-invoice-only-col">0</td>
+    <td style="text-align:right;padding:8px;${isStmtExempt()||currentDocType==='price' ? 'display:none;' : ''}" class="stmtVat stmt-invoice-only-col">0</td>
     <td><button class="btn btn-danger btn-sm" onclick="removeStmtItem(this)" style="padding:2px 8px;">✕</button></td>
   `;
   document.getElementById('stmtItemsBody').appendChild(row);
