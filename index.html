@@ -946,13 +946,14 @@ tbody tr:hover { background: #f8fafc; }
 
       <div class="card stmt-price-only" id="priceProductCard" style="display:none;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <h4 style="margin:0;">📦 등록 품목</h4>
-          <button class="btn btn-primary btn-sm" onclick="previewPriceList()">단가표 미리보기</button>
+          <h4 style="margin:0;">📦 저장 품목</h4>
+          <button class="btn btn-primary btn-sm" onclick="previewPriceList()">선택 품목 단가표 생성</button>
         </div>
         <div class="table-wrap">
           <table style="width:100%;font-size:13px;">
             <thead>
               <tr style="background:#f8fafc;">
+                <th style="padding:10px 4px;width:36px;"><input type="checkbox" id="priceCheckAll" onchange="toggleAllPriceProducts(this.checked)"></th>
                 <th style="padding:10px 12px;">품명</th>
                 <th style="padding:10px 12px;">규격</th>
                 <th style="padding:10px 12px;text-align:right;">단가</th>
@@ -6329,7 +6330,7 @@ function switchDocType(type) {
   document.querySelectorAll('.stmt-price-only').forEach(el => el.style.display = isPrice ? '' : 'none');
   document.querySelectorAll('.stmt-invoice-only-col').forEach(el => el.style.display = isPrice ? 'none' : '');
   document.getElementById('stmtQtyHeader').textContent = isPrice ? 'MOQ' : '수량';
-  document.getElementById('stmtMainBtn').textContent = isPrice ? '품목 등록' : '미리보기';
+  document.getElementById('stmtMainBtn').textContent = isPrice ? '품목 저장' : '미리보기';
   document.getElementById('stmtItemsBody').innerHTML = '';
   stmtItemCount = 0;
   addStmtItem();
@@ -6341,10 +6342,11 @@ function previewPriceList() {
   const biz = currentBiz();
   if (!biz) { alert('사업자를 선택하세요.'); return; }
   const date = document.getElementById('stmtDate').value;
-  const bizId = currentBizId();
-  const products = (DATA.priceProducts || []).filter(p => p.bizId === bizId);
   if (!date) { alert('작성일자를 입력하세요.'); return; }
-  if (products.length === 0) { alert('등록된 품목이 없습니다.'); return; }
+  const checkedIds = new Set([...document.querySelectorAll('.price-check:checked')].map(cb => cb.dataset.id));
+  const bizId = currentBizId();
+  const products = (DATA.priceProducts || []).filter(p => p.bizId === bizId && checkedIds.has(p.id));
+  if (products.length === 0) { alert('단가표에 넣을 품목을 선택하세요.'); return; }
   const items = products.map(p => ({ name: p.name, spec: p.spec, price: p.price, qty: p.moq }));
 
   const sectorVal = document.getElementById('stmtSector').value;
@@ -6447,10 +6449,12 @@ function renderPriceProducts() {
   const tbody = document.getElementById('priceProductBody');
   const bizId = currentBizId();
   const products = (DATA.priceProducts || []).filter(p => p.bizId === bizId);
-  if (products.length === 0) { card.style.display = 'none'; return; }
+  if (products.length === 0) { card.style.display = currentDocType === 'price' ? '' : 'none'; if (currentDocType === 'price') { card.style.display = ''; tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#999;">저장된 품목이 없습니다</td></tr>'; } else { card.style.display = 'none'; } return; }
   card.style.display = '';
   const cur = getStmtCurrency();
+  document.getElementById('priceCheckAll').checked = false;
   tbody.innerHTML = products.map(p => `<tr>
+    <td style="padding:10px 4px;text-align:center;"><input type="checkbox" class="price-check" data-id="${p.id}"></td>
     <td style="padding:10px 12px;">${p.name}</td>
     <td style="padding:10px 12px;">${p.spec || ''}</td>
     <td style="padding:10px 12px;text-align:right;font-weight:600;">${cur}${(p.price||0).toLocaleString()}</td>
@@ -6459,6 +6463,10 @@ function renderPriceProducts() {
       <button class="btn btn-danger btn-sm" onclick="deletePriceProduct('${p.id}')" style="padding:2px 8px;">삭제</button>
     </td>
   </tr>`).join('');
+}
+
+function toggleAllPriceProducts(checked) {
+  document.querySelectorAll('.price-check').forEach(cb => cb.checked = checked);
 }
 
 let _priceSaveTimer = null;
