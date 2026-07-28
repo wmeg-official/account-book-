@@ -920,12 +920,12 @@ tbody tr:hover { background: #f8fafc; }
         </div>
 
         <div class="data-actions" style="margin-top:20px;">
-          <button class="btn btn-primary" onclick="currentDocType==='price'?previewPriceList():previewStatement()">미리보기</button>
+          <button class="btn btn-primary" id="stmtMainBtn" onclick="currentDocType==='price'?addPriceProduct():previewStatement()">미리보기</button>
           <button class="btn btn-outline" onclick="resetStatement()">초기화</button>
         </div>
       </div>
 
-      <div class="card" id="savedStmtCard" style="display:none;">
+      <div class="card stmt-invoice-only" id="savedStmtCard" style="display:none;">
         <h4 style="margin-bottom:12px;">📋 발행 내역</h4>
         <div class="table-wrap">
           <table style="width:100%;font-size:13px;">
@@ -940,6 +940,27 @@ tbody tr:hover { background: #f8fafc; }
               </tr>
             </thead>
             <tbody id="savedStmtBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card stmt-price-only" id="priceProductCard" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h4 style="margin:0;">📦 등록 품목</h4>
+          <button class="btn btn-primary btn-sm" onclick="previewPriceList()">단가표 미리보기</button>
+        </div>
+        <div class="table-wrap">
+          <table style="width:100%;font-size:13px;">
+            <thead>
+              <tr style="background:#f8fafc;">
+                <th style="padding:10px 12px;">품명</th>
+                <th style="padding:10px 12px;">규격</th>
+                <th style="padding:10px 12px;text-align:right;">단가</th>
+                <th style="padding:10px 12px;text-align:right;">MOQ</th>
+                <th style="padding:10px 12px;width:80px;">관리</th>
+              </tr>
+            </thead>
+            <tbody id="priceProductBody"></tbody>
           </table>
         </div>
       </div>
@@ -1615,6 +1636,7 @@ async function loadDataFromServer() {
       roiSettings: myPersonId && settingsMap['roi_' + myPersonId] ? { [myPersonId]: settingsMap['roi_' + myPersonId] } : {},
       savedBuyers: myPersonId && settingsMap['buyers_' + myPersonId] ? settingsMap['buyers_' + myPersonId] : [],
       savedStatements: myPersonId && settingsMap['stmts_' + myPersonId] ? settingsMap['stmts_' + myPersonId] : [],
+      priceProducts: myPersonId && settingsMap['prices_' + myPersonId] ? settingsMap['prices_' + myPersonId] : [],
       currentBiz: settingsMap.currentBiz && myBizIds.includes(settingsMap.currentBiz) ? settingsMap.currentBiz : (businesses[0]?.id || ''),
       transactions
     };
@@ -6304,19 +6326,26 @@ function switchDocType(type) {
   document.getElementById('btnDocInvoice').className = isPrice ? 'btn btn-outline' : 'btn btn-primary';
   document.getElementById('btnDocPrice').className = isPrice ? 'btn btn-primary' : 'btn btn-outline';
   document.querySelectorAll('.stmt-invoice-only').forEach(el => el.style.display = isPrice ? 'none' : '');
+  document.querySelectorAll('.stmt-price-only').forEach(el => el.style.display = isPrice ? '' : 'none');
   document.querySelectorAll('.stmt-invoice-only-col').forEach(el => el.style.display = isPrice ? 'none' : '');
   document.getElementById('stmtQtyHeader').textContent = isPrice ? 'MOQ' : '수량';
+  document.getElementById('stmtMainBtn').textContent = isPrice ? '품목 등록' : '미리보기';
   document.getElementById('stmtItemsBody').innerHTML = '';
   stmtItemCount = 0;
   addStmtItem();
+  if (isPrice) renderPriceProducts();
+  else renderSavedStatements();
 }
 
 function previewPriceList() {
   const biz = currentBiz();
   if (!biz) { alert('사업자를 선택하세요.'); return; }
   const date = document.getElementById('stmtDate').value;
-  const items = getStmtItems();
-  if (!date || items.length === 0) { alert('작성일자와 품목을 입력하세요.'); return; }
+  const bizId = currentBizId();
+  const products = (DATA.priceProducts || []).filter(p => p.bizId === bizId);
+  if (!date) { alert('작성일자를 입력하세요.'); return; }
+  if (products.length === 0) { alert('등록된 품목이 없습니다.'); return; }
+  const items = products.map(p => ({ name: p.name, spec: p.spec, price: p.price, qty: p.moq }));
 
   const sectorVal = document.getElementById('stmtSector').value;
   const sectors = sectorVal === '__all__' || !sectorVal
@@ -6388,6 +6417,60 @@ function previewPriceList() {
   document.getElementById('stmtModalTitle').textContent = isEn ? 'Price list preview' : '단가표 미리보기';
   document.getElementById('stmtPrintArea').innerHTML = html;
   document.getElementById('stmtModal').classList.add('show');
+}
+
+// ── 단가표 품목 관리 ──
+function addPriceProduct() {
+  const items = getStmtItems();
+  if (items.length === 0) { alert('품목을 입력하세요.'); return; }
+  const bizId = currentBizId();
+  if (!bizId) return;
+  if (!DATA.priceProducts) DATA.priceProducts = [];
+  items.forEach(item => {
+    DATA.priceProducts.push({ id: 'pp_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), bizId, name: item.name, spec: item.spec, price: item.price, moq: item.qty });
+  });
+  savePriceProducts();
+  renderPriceProducts();
+  document.getElementById('stmtItemsBody').innerHTML = '';
+  stmtItemCount = 0;
+  addStmtItem();
+}
+
+function deletePriceProduct(id) {
+  DATA.priceProducts = (DATA.priceProducts || []).filter(p => p.id !== id);
+  savePriceProducts();
+  renderPriceProducts();
+}
+
+function renderPriceProducts() {
+  const card = document.getElementById('priceProductCard');
+  const tbody = document.getElementById('priceProductBody');
+  const bizId = currentBizId();
+  const products = (DATA.priceProducts || []).filter(p => p.bizId === bizId);
+  if (products.length === 0) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  const cur = getStmtCurrency();
+  tbody.innerHTML = products.map(p => `<tr>
+    <td style="padding:10px 12px;">${p.name}</td>
+    <td style="padding:10px 12px;">${p.spec || ''}</td>
+    <td style="padding:10px 12px;text-align:right;font-weight:600;">${cur}${(p.price||0).toLocaleString()}</td>
+    <td style="padding:10px 12px;text-align:right;">${p.moq || ''}</td>
+    <td style="padding:10px 12px;">
+      <button class="btn btn-danger btn-sm" onclick="deletePriceProduct('${p.id}')" style="padding:2px 8px;">삭제</button>
+    </td>
+  </tr>`).join('');
+}
+
+let _priceSaveTimer = null;
+function savePriceProducts() {
+  if (_priceSaveTimer) clearTimeout(_priceSaveTimer);
+  _priceSaveTimer = setTimeout(async () => {
+    const pid = currentPersonId();
+    if (!pid) return;
+    try {
+      await sb.from('app_settings').upsert({ key: 'prices_' + pid, value: DATA.priceProducts || [] }, { onConflict: 'key' });
+    } catch (e) { console.error('Price products save error:', e); }
+  }, 800);
 }
 
 function renderStatement() {
