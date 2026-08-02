@@ -522,6 +522,10 @@ tbody tr:hover { background: #f8fafc; }
           <label>&nbsp;</label>
           <button class="btn btn-outline" onclick="openEtsyUpload()">🧡 Etsy</button>
         </div>
+        <div class="form-group">
+          <label>&nbsp;</label>
+          <button class="btn btn-outline" onclick="openCardUpload()">💳 카드매입</button>
+        </div>
       </div>
       <div id="txTable" class="table-wrap"></div>
     </div>
@@ -1453,6 +1457,41 @@ tbody tr:hover { background: #f8fafc; }
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeEtsyModal()">취소</button>
       <button class="btn btn-primary" id="etsyConfirmBtn" onclick="confirmEtsyUpload()" style="display:none;">확인 등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- 카드매입 업로드 모달 -->
+<div id="cardUploadModal" class="modal-overlay">
+  <div class="modal" style="max-width:900px;">
+    <h3>💳 카드 매입 업로드</h3>
+    <p style="font-size:13px;color:var(--text-light);margin-bottom:16px;">
+      현대카드 이용내역 엑셀을 올리면 매입 거래가 자동 등록됩니다.
+    </p>
+    <div class="form-group">
+      <label>카드 이용내역 엑셀 *</label>
+      <input type="file" id="cardUploadFile" accept=".xlsx,.xls,.csv" onchange="parseCardFile(this)">
+    </div>
+    <div id="cardPreview" style="display:none;">
+      <hr style="border:none;border-top:1px solid var(--border);margin:16px 0;">
+      <div id="cardSummary"></div>
+      <div class="table-wrap" style="max-height:400px;overflow-y:auto;">
+        <table style="width:100%;font-size:12px;" id="cardPreviewTable">
+          <thead><tr style="background:#f8fafc;">
+            <th style="padding:8px;"><input type="checkbox" id="cardCheckAll" onchange="toggleAllCardRows(this.checked)" checked></th>
+            <th style="padding:8px;">이용일</th>
+            <th style="padding:8px;">가맹점</th>
+            <th style="padding:8px;text-align:right;">이용금액</th>
+            <th style="padding:8px;text-align:right;">공급가액</th>
+            <th style="padding:8px;text-align:right;">부가세</th>
+          </tr></thead>
+          <tbody id="cardPreviewBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeCardUploadModal()">취소</button>
+      <button class="btn btn-primary" id="cardConfirmBtn" onclick="confirmCardUpload()" style="display:none;">확인 등록</button>
     </div>
   </div>
 </div>
@@ -6314,6 +6353,158 @@ async function confirmEtsyUpload() {
   let msg = `등록 완료!\n\n• Etsy 매출: ${totalSales.toLocaleString()}원\n• Etsy 수수료: ${totalFees.toLocaleString()}원`;
   if (totalTax > 0) msg += `\n• Etsy 해외 Tax: ${totalTax.toLocaleString()}원`;
   alert(msg);
+}
+
+// ========== 카드매입 업로드 ==========
+let cardParsedRows = [];
+
+function openCardUpload() {
+  document.getElementById('cardUploadFile').value = '';
+  document.getElementById('cardPreview').style.display = 'none';
+  document.getElementById('cardConfirmBtn').style.display = 'none';
+  document.getElementById('cardSummary').innerHTML = '';
+  document.getElementById('cardPreviewBody').innerHTML = '';
+  cardParsedRows = [];
+  document.getElementById('cardUploadModal').classList.add('show');
+}
+
+function closeCardUploadModal() {
+  document.getElementById('cardUploadModal').classList.remove('show');
+}
+
+function parseCardFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      if (rows.length < 2) { alert('데이터가 없습니다.'); return; }
+
+      let headerIdx = 0;
+      for (let i = 0; i < Math.min(rows.length, 10); i++) {
+        const r = (rows[i] || []).map(c => String(c || '').trim());
+        if (r.some(c => /이용일|거래일|승인일|일자/.test(c)) && r.some(c => /가맹점|이용처|상호/.test(c))) { headerIdx = i; break; }
+      }
+      const header = (rows[headerIdx] || []).map(c => String(c || '').trim());
+      const ci = {};
+      header.forEach((h, i) => {
+        if (/^(이용일|거래일|승인일|일자|이용일자|거래일자)/.test(h)) ci.date = i;
+        else if (/가맹점|이용처|상호/.test(h) && ci.partner === undefined) ci.partner = i;
+        else if (/이용금액|이용\s*금액|금액|총금액|결제금액/.test(h) && ci.amount === undefined) ci.amount = i;
+        else if (/공급가액/.test(h)) ci.supply = i;
+        else if (/부가세|세액/.test(h) && ci.vat === undefined) ci.vat = i;
+      });
+
+      if (ci.date === undefined || ci.partner === undefined || ci.amount === undefined) {
+        alert('컬럼을 찾을 수 없습니다.\n필요 컬럼: 이용일(거래일), 가맹점(이용처), 이용금액');
+        return;
+      }
+
+      cardParsedRows = [];
+      const existingTxs = DATA.transactions.filter(t => t.bizId === currentBizId() && t.type === 'expense' && t.evidence === 'card');
+
+      for (let r = headerIdx + 1; r < rows.length; r++) {
+        const row = rows[r];
+        if (!row || !row[ci.date]) continue;
+        let rawDate = row[ci.date];
+        let date = '';
+        if (typeof rawDate === 'number') {
+          const d = XLSX.SSF.parse_date_code(rawDate);
+          if (d) date = `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+        } else {
+          const s = String(rawDate).replace(/\./g, '-').replace(/\//g, '-').trim();
+          const m = s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+          if (m) date = `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+        }
+        if (!date) continue;
+
+        const partner = String(row[ci.partner] || '').trim();
+        if (!partner) continue;
+        const totalAmt = Math.abs(parseInt(String(row[ci.amount] || '0').replace(/,/g, '')) || 0);
+        if (totalAmt === 0) continue;
+
+        let supply, vat;
+        if (ci.supply !== undefined && ci.vat !== undefined) {
+          supply = Math.abs(parseInt(String(row[ci.supply] || '0').replace(/,/g, '')) || 0);
+          vat = Math.abs(parseInt(String(row[ci.vat] || '0').replace(/,/g, '')) || 0);
+        } else {
+          supply = Math.round(totalAmt / 1.1);
+          vat = totalAmt - supply;
+        }
+
+        const dup = existingTxs.some(t => t.date === date && t.partner === partner && (t.amount + (t.vat || 0)) === totalAmt);
+
+        cardParsedRows.push({ date, partner, totalAmt, supply, vat, dup });
+      }
+
+      if (cardParsedRows.length === 0) { alert('등록할 거래가 없습니다.'); return; }
+
+      const dupCount = cardParsedRows.filter(r => r.dup).length;
+      const newCount = cardParsedRows.filter(r => !r.dup).length;
+      const totalSum = cardParsedRows.filter(r => !r.dup).reduce((s, r) => s + r.totalAmt, 0);
+
+      document.getElementById('cardSummary').innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px;">
+          <div class="card"><div class="card-label">전체 건수</div><div class="card-value">${cardParsedRows.length}건</div></div>
+          <div class="card"><div class="card-label">신규 등록</div><div class="card-value primary">${newCount}건</div></div>
+          ${dupCount > 0 ? `<div class="card"><div class="card-label">중복 (제외)</div><div class="card-value expense">${dupCount}건</div></div>` : ''}
+          <div class="card"><div class="card-label">합계 금액</div><div class="card-value">${totalSum.toLocaleString()}원</div></div>
+        </div>`;
+
+      const tbody = document.getElementById('cardPreviewBody');
+      tbody.innerHTML = cardParsedRows.map((r, i) => `<tr style="${r.dup ? 'opacity:0.4;text-decoration:line-through;' : ''}">
+        <td style="padding:6px 8px;"><input type="checkbox" class="card-row-check" data-idx="${i}" ${r.dup ? '' : 'checked'}></td>
+        <td style="padding:6px 8px;">${r.date}</td>
+        <td style="padding:6px 8px;">${r.partner}</td>
+        <td style="padding:6px 8px;text-align:right;font-weight:600;">${r.totalAmt.toLocaleString()}</td>
+        <td style="padding:6px 8px;text-align:right;">${r.supply.toLocaleString()}</td>
+        <td style="padding:6px 8px;text-align:right;">${r.vat.toLocaleString()}</td>
+      </tr>`).join('');
+
+      document.getElementById('cardPreview').style.display = 'block';
+      document.getElementById('cardConfirmBtn').style.display = 'inline-flex';
+    } catch (err) {
+      alert('파일 읽기 오류: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function toggleAllCardRows(checked) {
+  document.querySelectorAll('.card-row-check').forEach(cb => { if (!cardParsedRows[cb.dataset.idx].dup) cb.checked = checked; });
+}
+
+async function confirmCardUpload() {
+  const checked = [...document.querySelectorAll('.card-row-check:checked')].map(cb => parseInt(cb.dataset.idx));
+  if (checked.length === 0) { alert('등록할 항목을 선택하세요.'); return; }
+  if (!confirm(`${checked.length}건을 매입으로 등록하시겠습니까?`)) return;
+
+  const bizId = currentBizId();
+  const cardName = (DATA.cards || []).find(c => /현대/.test(c.name))?.name || '현대카드';
+  const newTxs = [];
+
+  for (const idx of checked) {
+    const r = cardParsedRows[idx];
+    const tx = {
+      id: genId(), bizId, date: r.date,
+      type: 'expense', category: '', partner: r.partner,
+      amount: r.supply, vat: r.vat, taxType: 'taxable',
+      evidence: 'card', card: cardName, bank: '', sector: '',
+      memo: '[자동등록] 현대카드'
+    };
+    DATA.transactions.push(tx);
+    newTxs.push(tx);
+  }
+
+  saveData();
+  for (const tx of newTxs) await autoSyncTx(tx);
+
+  closeCardUploadModal();
+  renderTransactions();
+  alert(`등록 완료! ${newTxs.length}건 매입 등록`);
 }
 
 // ========== 거래명세서 ==========
