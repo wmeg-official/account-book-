@@ -134,6 +134,77 @@ tbody tr:hover { background: #f8fafc; }
 .bep-menu-item .bep-menu-grid label { font-size:11px;color:var(--text-light); }
 .bep-menu-item .bep-menu-grid input { width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--text);font-size:12px; }
 .bep-menu-margin { font-size:11px;color:var(--text-light);margin-top:6px; }
+/* 메뉴 원가 계산 */
+.mc-item { border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:12px;background:var(--card); }
+.mc-head { display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px; }
+.mc-head input, .mc-head select { padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--card);color:var(--text); }
+.mc-head input:focus, .mc-head select:focus, .mc-lines input:focus, .mc-ch-fields input:focus, .mc-top input:focus { outline:none;border-color:var(--primary); }
+.mc-lines { width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px; }
+.mc-lines th { font-size:11px;color:var(--text-light);text-align:left;padding:2px 4px;font-weight:500;background:transparent;text-transform:none;border-bottom:1px solid var(--border);white-space:nowrap; }
+.mc-lines td { padding:2px 3px;border-bottom:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle; }
+.mc-lines input { width:100%;min-width:0;box-sizing:border-box;padding:3px 5px;border:1px solid var(--border);border-radius:4px;font-size:12px;background:var(--card);color:var(--text); }
+.mc-lines input[type=number] { -moz-appearance:textfield;appearance:textfield;text-align:right; }
+.mc-lines input[type=number]::-webkit-inner-spin-button, .mc-lines input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none;margin:0; }
+.mc-lines .num { text-align:right; }
+.mc-lines-sm { font-size:11px; }
+.mc-lines-sm td { padding:1px 2px; }
+.mc-lines-sm input { padding:2px 4px;font-size:11px; }
+.mc-x { border:none;background:transparent;color:var(--text-light);cursor:pointer;font-size:13px;line-height:1;padding:0 2px; }
+.mc-x:hover { color:var(--expense); }
+.mc-add { margin-top:3px;border:none;background:transparent;color:var(--primary);cursor:pointer;font-size:11px;padding:2px 0; }
+.mc-add:hover { text-decoration:underline; }
+.mc-top { font-size:13px;color:var(--text-light);display:flex;align-items:center;gap:6px;white-space:nowrap; }
+.mc-top input { padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-size:13px;text-align:right; }
+.mc-sec { font-size:11px;font-weight:700;color:var(--text);margin:6px 0 3px;display:flex;justify-content:space-between;align-items:center;gap:8px; }
+.mc-sec span { font-weight:400;color:var(--text-light); }
+.mc-sec b { font-weight:600; }
+.mc-common { margin-bottom:8px; }
+.mc-ch-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px; }
+@media (max-width:1100px) { .mc-ch-grid { grid-template-columns:1fr; } }
+.mc-ch { border:1px solid var(--border);border-radius:8px;padding:8px;background:var(--bg);min-width:0; }
+.mc-ch.off { opacity:.6; }
+.mc-ch-head { font-weight:700;font-size:12px;margin-bottom:6px; }
+.mc-ch-head label { display:flex;align-items:center;gap:6px;cursor:pointer; }
+.mc-ch-fields { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-bottom:2px; }
+.mc-ch-fields label { display:flex;flex-direction:column;gap:2px;font-size:10px;color:var(--text-light); }
+.mc-ch-fields input { width:100%;min-width:0;box-sizing:border-box;padding:3px 5px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:right;background:var(--card);color:var(--text);-moz-appearance:textfield;appearance:textfield; }
+.mc-ch-fields input::-webkit-inner-spin-button, .mc-ch-fields input::-webkit-outer-spin-button { -webkit-appearance:none;margin:0; }
+.mc-ch .mc-sec { margin-top:4px; }
+.mc-ch-calc { margin-top:6px;padding-top:5px;border-top:1px dashed var(--border);font-size:11px;color:var(--text-light); }
+.mc-ch-calc > div { display:flex;justify-content:space-between;gap:6px;padding:0; }
+.mc-ch-calc b { color:var(--text);font-weight:600; }
+.mc-ch-net { margin-top:3px;padding-top:3px;border-top:1px solid var(--border);font-size:12px;align-items:center; }
+.mc-net { font-size:18px;font-weight:800; }
+.mc-net.pos { color:var(--income); }
+.mc-net.neg { color:var(--expense); }
+.mc-ch-net .mc-net { font-size:14px; }
+.mc-ch-net i { font-style:normal;font-size:10px;color:var(--text-light); }
+.mc-ch-off { font-size:11px;color:var(--text-light);padding:4px 0; }
+.mc-row { cursor:pointer; }
+.mc-row.open > td { background:var(--bg); }
+.mc-chev { display:inline-block;width:16px;color:var(--text-light);font-size:11px; }
+.mc-detail > td { padding:0 12px 12px 12px;background:var(--bg);white-space:normal;border-bottom:1px solid var(--border); }
+.mc-detail .mc-item { margin:0;background:var(--card); }
+tbody tr.mc-detail:hover { background:transparent; }
+.mc-mat { padding:10px 16px;margin-bottom:16px; }
+.mc-mat-head { display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;flex-wrap:wrap; }
+.mc-mat-cnt { color:var(--text-light);font-size:12px; }
+.mc-mat-hint { flex-basis:100%;font-size:11px;color:var(--text-light);font-weight:400;margin-left:16px; }
+.mc-mat-body { margin-top:8px; }
+.mc-lines-mat select { width:100%;box-sizing:border-box;padding:3px 4px;border:1px solid var(--border);border-radius:4px;font-size:12px;background:var(--card);color:var(--text); }
+.mc-linked { color:var(--primary);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;padding:3px 2px; }
+.mc-linked i { font-style:normal;font-weight:400;color:var(--text-light);font-size:10px; }
+.mc-ro { color:var(--text-light); }
+.mc-line-actions { display:flex;align-items:center;gap:8px;margin-top:3px;flex-wrap:wrap; }
+.mc-mat-add { padding:2px 4px;border:1px solid var(--border);border-radius:4px;font-size:11px;background:var(--card);color:var(--primary);max-width:100%; }
+.mc-lines input.mc-derived { background:var(--bg);color:var(--text-light);font-weight:600;cursor:default; }
+.mc-chips { display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px; }
+.mc-chip { padding:3px 10px;border-radius:14px;border:1px solid var(--border);background:var(--card);font-size:12px;cursor:pointer;color:var(--text-light);line-height:1.4; }
+.mc-chip:hover { border-color:var(--primary);color:var(--primary); }
+.mc-chip.on { background:var(--primary);color:#fff;border-color:var(--primary); }
+.mc-chip.on:hover { color:#fff; }
+.mc-chip.zero { opacity:.55; }
+.mc-chip small { margin-left:4px;opacity:.8;font-size:11px; }
 .bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 240px; padding: 10px 0; }
 .bar-group { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
 .bar { width: 16px; border-radius: 4px 4px 0 0; transition: height 0.3s; min-height: 2px; }
@@ -229,6 +300,7 @@ tbody tr:hover { background: #f8fafc; }
       <a onclick="showPage('transactions')" data-page="transactions"><span class="icon">📝</span> 거래 내역</a>
       <a onclick="showPage('bep')" data-page="bep"><span class="icon">📈</span> BEP 분석</a>
       <a onclick="showPage('roi')" data-page="roi"><span class="icon">💰</span> ROI 분석</a>
+      <a onclick="showPage('menucost')" data-page="menucost"><span class="icon">☕</span> 메뉴 원가</a>
       <a onclick="showPage('proxy')" data-page="proxy"><span class="icon">🛒</span> 구매대행</a>
       <a onclick="showPage('reports')" data-page="reports"><span class="icon">📈</span> 손익 리포트</a>
       <a onclick="showPage('vat')" data-page="vat"><span class="icon">🧾</span> 부가세</a>
@@ -420,6 +492,27 @@ tbody tr:hover { background: #f8fafc; }
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- 메뉴 원가 계산 -->
+    <div id="page-menucost" class="page">
+      <h2 class="page-title">메뉴 원가 계산</h2>
+      <p style="font-size:12px;color:var(--text-light);margin:-8px 0 16px;">판매가에서 부가세·수수료·원가를 빼면 1개 팔았을 때 실제로 남는 돈이 나옵니다. 모든 금액은 <b>부가세 포함</b>으로 적습니다. 원가에 든 부가세는 돌려받으므로 부가세는 (판매가 − 원가) ÷ 11로 계산합니다. 재료비는 공통 원가에 한 번만 적고, 홀·테이크아웃·배달은 판매가·수수료·포장비를 따로 적습니다.</p>
+      <div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:8px;">
+        <label class="mc-top" style="flex:1;min-width:260px;">카테고리
+          <input type="text" id="mcCats" placeholder="쉼표로 구분 (예: 커피, 시그니처, 음료)" style="flex:1;text-align:left;" onchange="mcSetCats(this.value)">
+        </label>
+        <label class="mc-top">카드수수료율 <input type="number" id="mcCardFeeRate" step="0.1" min="0" max="10" style="width:64px;" oninput="mcSetGlobal('cardFeeRate',this.value)"> %</label>
+        <label class="mc-top">배달 수수료율 <input type="number" id="mcDeliveryFeeRate" step="0.1" min="0" max="60" style="width:64px;" oninput="mcSetGlobal('deliveryFeeRate',this.value)"> %</label>
+        <label class="mc-top">배달비 점주부담 <input type="number" id="mcDeliveryFixed" step="100" min="0" style="width:84px;" oninput="mcSetGlobal('deliveryFixed',this.value)"> 원</label>
+        <div style="flex:1;"></div>
+        <button class="btn btn-outline" onclick="sendMenuCostToBep()">BEP 메뉴로 보내기</button>
+        <button class="btn btn-primary" onclick="mcAdd()">+ 메뉴 추가</button>
+      </div>
+      <p style="font-size:11px;color:var(--text-light);margin:0 0 14px;">수수료율·배달비는 기본값입니다. 메뉴의 채널 칸에서 비워두면 이 값을 쓰고, 적으면 그 메뉴만 따로 적용됩니다. 배달비 점주부담은 한 주문에 보통 나가는 개수로 나눠 품목당 금액으로 적으세요.</p>
+      <div id="mcMaterials"></div>
+      <div id="mcSummary"></div>
+      <div id="mcList"></div>
     </div>
 
     <div id="page-dashboard" class="page active">
@@ -1677,6 +1770,7 @@ async function loadDataFromServer() {
       savedBuyers: myPersonId && settingsMap['buyers_' + myPersonId] ? settingsMap['buyers_' + myPersonId] : [],
       savedStatements: myPersonId && settingsMap['stmts_' + myPersonId] ? settingsMap['stmts_' + myPersonId] : [],
       priceProducts: myPersonId && settingsMap['prices_' + myPersonId] ? settingsMap['prices_' + myPersonId] : [],
+      menuCosts: myPersonId && settingsMap['menucost_' + myPersonId] ? settingsMap['menucost_' + myPersonId] : { cardFeeRate: 0.5, items: [] },
       currentBiz: settingsMap.currentBiz && myBizIds.includes(settingsMap.currentBiz) ? settingsMap.currentBiz : (businesses[0]?.id || ''),
       transactions
     };
@@ -1863,6 +1957,7 @@ function renderPage(page) {
   switch(page) {
     case 'bep': renderBEP(); break;
     case 'roi': renderROI(); break;
+    case 'menucost': renderMenuCost(); break;
     case 'dashboard': renderDashboard(); break;
     case 'transactions': renderTransactions(); break;
     case 'vat': renderVat(); break;
@@ -2257,6 +2352,545 @@ function calcROI() {
   const bar = document.getElementById('roiProgressBar');
   bar.style.width = Math.max(progressPct, 0) + '%';
   bar.style.background = progressPct >= 100 ? 'var(--income)' : progressPct >= 50 ? 'var(--primary)' : 'var(--expense)';
+}
+
+// ========== 메뉴 원가 계산 ==========
+const MC_DEFAULT_CATS = ['커피', '시그니처', '음료', '주류', '디저트', '음식'];
+const MC_CH = [['hall', '홀'], ['takeout', '테이크아웃'], ['delivery', '배달']];
+const MC_MAT_CATS = ['재료', '포장', '기타'];
+const mcOpen = new Set(); // 펼쳐진 메뉴 id (세션 동안만 유지)
+let mcMatOpen = null;     // 부자재 카드 펼침 여부 (null = 비어 있으면 자동 펼침)
+let mcMenuFilter = '';    // 메뉴 카테고리 필터 ('' = 전체)
+let mcMatFilter = '';     // 부자재 구분 필터 ('' = 전체)
+
+// 카테고리 필터 칩. cats: [이름, 개수][], current: 선택값, fn: 클릭 시 호출할 함수명
+function mcChipsHtml(cats, current, fn) {
+  const total = cats.reduce((s, [, n]) => s + n, 0);
+  const chip = (label, val, n) => `<button type="button" class="mc-chip ${current === val ? 'on' : ''} ${n === 0 ? 'zero' : ''}" onclick="${fn}('${mcEsc(val).replace(/'/g, '\\\'')}')">${mcEsc(label)}<small>${n}</small></button>`;
+  return `<div class="mc-chips">${chip('전체', '', total)}${cats.map(([c, n]) => chip(c, c, n)).join('')}</div>`;
+}
+function mcSetMenuFilter(v) { mcMenuFilter = v || ''; renderMenuCostSummary(); }
+function mcSetMatFilter(v) { mcMatFilter = v || ''; renderMcMaterials(); }
+
+function mcEsc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function mcIsBlank(v) { return v === null || v === undefined || v === ''; }
+function mcBlankCh(on) { return { on: !!on, price: '', feePct: '', fixed: '', lines: [] }; }
+function mcNewId(p) { return p + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6); }
+// 단가 표시: 정수면 그대로, 아니면 소수 2자리까지 (예: 우유 2.5원/ml)
+function mcFmtUnit(v) { v = +v || 0; return Number.isInteger(v) ? fmt(v) : (Math.round(v * 100) / 100).toLocaleString('ko-KR', { maximumFractionDigits: 2 }); }
+function mcFmtUnitRaw(v) { v = +v || 0; return Number.isInteger(v) ? String(v) : String(Math.round(v * 100) / 100); }
+// 부자재 단가: 구매가와 구매 수량이 있으면 자동(구매가 ÷ 수량), 없으면 직접 입력한 단가
+function mcMatDerived(t) { return !mcIsBlank(t.buyPrice) && !mcIsBlank(t.buyQty) && +t.buyQty > 0; }
+function mcMatSync(t) { if (mcMatDerived(t)) t.price = +t.buyPrice / +t.buyQty; return t; }
+
+function mcData() {
+  if (!DATA.menuCosts || typeof DATA.menuCosts !== 'object') DATA.menuCosts = { cardFeeRate: 0.5, items: [] };
+  const d = DATA.menuCosts;
+  if (!Array.isArray(d.items)) d.items = [];
+  if (!Array.isArray(d.materials)) d.materials = [];
+  d.materials.forEach(mcMatSync);
+  if (d.cardFeeRate == null) d.cardFeeRate = 0.5;
+  if (d.deliveryFeeRate == null) d.deliveryFeeRate = 13;
+  if (d.deliveryFixed == null) d.deliveryFixed = 3000;
+  if (!Array.isArray(d.cats) || d.cats.length === 0) d.cats = [...MC_DEFAULT_CATS];
+  // 구버전(판매가 하나) → 채널 구조로 이전
+  d.items.forEach(m => {
+    if (!Array.isArray(m.lines)) m.lines = [];
+    if (!m.ch || typeof m.ch !== 'object') {
+      m.ch = { hall: mcBlankCh(true), takeout: mcBlankCh(true), delivery: mcBlankCh(false) };
+      m.ch.hall.price = m.price ?? '';
+      m.ch.takeout.price = m.price ?? '';
+      delete m.price;
+    }
+    MC_CH.forEach(([k]) => {
+      if (!m.ch[k] || typeof m.ch[k] !== 'object') m.ch[k] = mcBlankCh(false);
+      if (!Array.isArray(m.ch[k].lines)) m.ch[k].lines = [];
+    });
+  });
+  return d;
+}
+function mcItems() { return mcData().items.filter(m => m.bizId === currentBizId()); }
+function mcFind(id) { return mcData().items.find(m => m.id === id); }
+function mcCats() { return mcData().cats; }
+function mcCatIndex(cat) { const i = mcCats().indexOf(cat); return i < 0 ? mcCats().length : i; }
+function mcLinesOf(m, k) { return k === 'c' ? m.lines : (m.ch[k] ? m.ch[k].lines : null); }
+
+// ----- 부자재 (여러 메뉴에 공통으로 쓰는 재료·포장재, 단가를 한 곳에서 관리) -----
+function mcMats() { return mcData().materials.filter(t => t.bizId === currentBizId()); }
+function mcMat(id) { return id ? mcData().materials.find(t => t.id === id) : null; }
+// 원가 줄의 단가/이름: 부자재에 연결된 줄이면 부자재 값, 아니면 직접 입력값
+function mcLineUnit(l) { const mt = l.mid ? mcMat(l.mid) : null; return mt ? (+mt.price || 0) : (+l.unit || 0); }
+function mcLineName(l) { const mt = l.mid ? mcMat(l.mid) : null; return mt ? (mt.name || '') : (l.name || ''); }
+function mcSumLines(lines) { return (lines || []).reduce((s, l) => s + (+l.qty || 0) * mcLineUnit(l), 0); }
+function mcMatUsage(mid) {
+  let n = 0;
+  mcItems().forEach(m => {
+    const all = [m.lines, ...MC_CH.map(([k]) => m.ch[k].lines)];
+    if (all.some(ls => (ls || []).some(l => l.mid === mid))) n++;
+  });
+  return n;
+}
+
+// 카테고리 목록 편집 (쉼표 구분). 비우면 기본값으로 복원.
+function mcSetCats(v) {
+  const cats = [...new Set(String(v || '').split(',').map(s => s.trim()).filter(Boolean))];
+  mcData().cats = cats.length ? cats : [...MC_DEFAULT_CATS];
+  saveMenuCosts();
+  renderMenuCost();
+}
+
+// 채널별: 판매가 - 순부가세 - 수수료 - 고정 공제 - (공통 원가 + 채널 원가) = 1개 팔면 남는 돈
+// 모든 금액은 부가세 포함. 원가에 든 부가세는 매입세액으로 돌려받으므로 부가세는 (판매가 - 원가)÷11 로 계산.
+function mcCalcCh(m, k) {
+  const g = mcData(); const c = m.ch[k];
+  const price = +c.price || 0;
+  const feePct = mcIsBlank(c.feePct) ? (k === 'delivery' ? +g.deliveryFeeRate || 0 : +g.cardFeeRate || 0) : +c.feePct;
+  const fixed = mcIsBlank(c.fixed) ? (k === 'delivery' ? +g.deliveryFixed || 0 : 0) : +c.fixed;
+  const fee = Math.round(price * feePct / 100);
+  const common = mcSumLines(m.lines), own = mcSumLines(c.lines);
+  const cost = common + own;
+  const vat = Math.round((price - cost) / 11);
+  const net = price - vat - fee - fixed - cost;
+  const pct = price > 0 ? net / price * 100 : 0;
+  return { on: !!c.on, price, feePct, fixed, vat, fee, common, own, cost, net, pct };
+}
+
+let _mcSaveTimer = null;
+function saveMenuCosts() {
+  if (_mcSaveTimer) clearTimeout(_mcSaveTimer);
+  _mcSaveTimer = setTimeout(async () => {
+    const pid = currentPersonId();
+    if (!pid) return;
+    try {
+      await sb.from('app_settings').upsert({ key: 'menucost_' + pid, value: mcData() }, { onConflict: 'key' });
+    } catch (e) { console.error('menucost save error:', e); }
+  }, 800);
+}
+
+function renderMenuCost() {
+  const g = mcData();
+  const setIfIdle = (id, v) => { const e = document.getElementById(id); if (e && document.activeElement !== e) e.value = v; };
+  setIfIdle('mcCardFeeRate', g.cardFeeRate);
+  setIfIdle('mcDeliveryFeeRate', g.deliveryFeeRate);
+  setIfIdle('mcDeliveryFixed', g.deliveryFixed);
+  setIfIdle('mcCats', mcCats().join(', '));
+  renderMcMaterials();
+  renderMenuCostSummary();
+}
+
+// ----- 부자재 카드 -----
+function renderMcMaterials() {
+  const el = document.getElementById('mcMaterials'); if (!el) return;
+  const all = mcMats();
+  const open = mcMatOpen === null ? all.length === 0 : mcMatOpen;
+  const matCat = t => MC_MAT_CATS.includes(t.cat) ? t.cat : '기타';
+  const chipCats = MC_MAT_CATS.map(c => [c, all.filter(t => matCat(t) === c).length]);
+  const mats = mcMatFilter ? all.filter(t => matCat(t) === mcMatFilter) : all;
+  const rows = mats.map(t => { const der = mcMatDerived(t); return `
+    <tr>
+      <td><select onchange="mcMatSet('${t.id}','cat',this.value)">${MC_MAT_CATS.map(c => `<option ${t.cat === c ? 'selected' : ''}>${c}</option>`).join('')}</select></td>
+      <td><input type="text" value="${mcEsc(t.name)}" placeholder="이름 (예: 핫컵, 원두)" oninput="mcMatSet('${t.id}','name',this.value)"></td>
+      <td><input type="text" value="${mcEsc(t.unit)}" placeholder="개 / g / ml" oninput="mcMatSet('${t.id}','unit',this.value)"></td>
+      <td><input type="number" step="any" min="0" value="${t.buyPrice ?? ''}" placeholder="예: 24000" oninput="mcMatSet('${t.id}','buyPrice',this.value)"></td>
+      <td><input type="number" step="any" min="0" value="${t.buyQty ?? ''}" placeholder="예: 1000" oninput="mcMatSet('${t.id}','buyQty',this.value)"></td>
+      <td><input type="number" step="any" min="0" id="mc-matprice-${t.id}" class="${der ? 'mc-derived' : ''}" ${der ? 'readonly title="구매가 ÷ 구매 수량으로 자동 계산"' : ''} value="${mcIsBlank(t.price) ? '' : mcFmtUnitRaw(t.price)}" placeholder="단가" oninput="mcMatSet('${t.id}','price',this.value)"></td>
+      <td><input type="number" step="any" min="0" value="${t.defQty ?? ''}" placeholder="1" oninput="mcMatSet('${t.id}','defQty',this.value)"></td>
+      <td class="num" id="mc-matuse-${t.id}">${mcMatUsage(t.id)}</td>
+      <td style="text-align:center;"><button class="mc-x" title="삭제" onclick="mcMatRemove('${t.id}')">×</button></td>
+    </tr>`; }).join('');
+  el.innerHTML = `<div class="card mc-mat">
+    <div class="mc-mat-head" onclick="mcMatToggle()">
+      <span class="mc-chev">${open ? '▾' : '▸'}</span><b>부자재 단가</b> <span class="mc-mat-cnt">(${all.length}개)</span>
+      <span class="mc-mat-hint">홀더·컵·빨대·원두처럼 여러 메뉴에 공통으로 들어가는 재료를 여기 한 번만 등록하면, 메뉴 원가에서 골라 넣을 때 단가가 자동으로 들어가고 여기서 단가를 바꾸면 모든 메뉴가 같이 바뀝니다. 구매가와 구매 수량을 적으면 단위당 단가는 자동 계산됩니다.</span>
+    </div>
+    <div class="mc-mat-body" style="${open ? '' : 'display:none;'}">
+      ${all.length ? mcChipsHtml(chipCats, mcMatFilter, 'mcSetMatFilter') : ''}
+      <table class="mc-lines mc-lines-mat">
+        <colgroup><col style="width:74px"><col><col style="width:66px"><col style="width:92px"><col style="width:84px"><col style="width:84px"><col style="width:70px"><col style="width:62px"><col style="width:26px"></colgroup>
+        <thead><tr><th>구분</th><th>이름</th><th>단위</th><th class="num">구매가</th><th class="num">구매 수량</th><th class="num">단가 (단위당)</th><th class="num">기본 수량</th><th class="num">사용 메뉴</th><th></th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="9" style="color:var(--text-light);font-size:12px;padding:8px 4px;">${all.length ? `"${mcEsc(mcMatFilter)}" 구분에 등록된 부자재가 없습니다.` : '등록된 부자재가 없습니다.'}</td></tr>`}</tbody>
+      </table>
+      <div style="display:flex;gap:14px;align-items:center;margin-top:4px;flex-wrap:wrap;">
+        <button class="mc-add" onclick="mcMatAdd()">+ 부자재 추가${mcMatFilter ? ` (${mcEsc(mcMatFilter)})` : ''}</button>
+        ${all.length === 0 ? `<button class="mc-add" onclick="mcMatSeed()">기본 부자재 채우기 (원두·우유·핫컵·아이스컵·뚜껑·홀더·빨대)</button>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+function mcMatToggle() { mcMatOpen = !(mcMatOpen === null ? mcMats().length === 0 : mcMatOpen); renderMcMaterials(); }
+function mcMatAdd(preset) {
+  const cat = MC_MAT_CATS.includes(mcMatFilter) ? mcMatFilter : '포장';
+  const t = Object.assign({ id: mcNewId('mt'), bizId: currentBizId(), cat, name: '', unit: '개', price: '', defQty: 1 }, preset || {});
+  mcData().materials.push(t);
+  saveMenuCosts();
+  mcMatOpen = true;
+  renderMcMaterials();
+  mcRefreshMatSelects();
+  if (!preset) document.querySelector(`#mcMaterials tbody tr:last-child input[type=text]`)?.focus();
+  return t;
+}
+function mcMatSeed() {
+  if (mcMats().length) return;
+  [
+    { cat: '재료', name: '원두', unit: 'g', buyPrice: 26400, buyQty: 1000, price: 26.4, defQty: 18 },
+    { cat: '재료', name: '우유', unit: 'ml', price: '', defQty: 200 },
+    { cat: '포장', name: '핫컵', unit: '개', price: '', defQty: 1 },
+    { cat: '포장', name: '아이스컵', unit: '개', price: '', defQty: 1 },
+    { cat: '포장', name: '뚜껑', unit: '개', price: '', defQty: 1 },
+    { cat: '포장', name: '홀더', unit: '개', price: '', defQty: 1 },
+    { cat: '포장', name: '빨대', unit: '개', price: '', defQty: 1 },
+  ].forEach(p => mcData().materials.push(Object.assign({ id: mcNewId('mt'), bizId: currentBizId() }, p)));
+  saveMenuCosts();
+  mcMatOpen = true;
+  renderMcMaterials();
+  mcRefreshMatSelects();
+}
+function mcMatSet(id, field, value) {
+  const t = mcMat(id); if (!t) return;
+  const numeric = ['price', 'defQty', 'buyPrice', 'buyQty'].includes(field);
+  if (field === 'price' && mcMatDerived(t)) return; // 자동 계산 중이면 직접 입력 무시
+  t[field] = numeric ? (value === '' ? '' : +value) : value;
+  if (field === 'buyPrice' || field === 'buyQty') {
+    const der = mcMatDerived(t);
+    if (der) mcMatSync(t);
+    const inp = document.getElementById('mc-matprice-' + id);
+    if (inp) {
+      inp.readOnly = der; inp.classList.toggle('mc-derived', der);
+      inp.title = der ? '구매가 ÷ 구매 수량으로 자동 계산' : '';
+      if (der) inp.value = mcFmtUnitRaw(t.price);
+    }
+    mcRefreshMatSelects(); mcRecalcAll();
+  }
+  else if (field === 'price') { mcRefreshMatSelects(); mcRecalcAll(); }
+  else if (field === 'name' || field === 'cat') { mcRefreshMatSelects(); mcRecalcAll(); }
+  saveMenuCosts();
+}
+function mcMatRemove(id) {
+  const t = mcMat(id); if (!t) return;
+  const used = mcMatUsage(id);
+  const msg = used ? `"${t.name || '(이름 없음)'}"을(를) ${used}개 메뉴에서 쓰고 있습니다. 삭제하면 그 줄들은 지금 단가로 직접 입력 항목이 됩니다. 삭제할까요?` : `"${t.name || '(이름 없음)'}" 부자재를 삭제할까요?`;
+  if (!confirm(msg)) return;
+  // 연결된 줄은 현재 값으로 스냅샷을 남기고 직접 입력으로 전환
+  mcData().items.forEach(m => [m.lines, ...MC_CH.map(([k]) => m.ch[k].lines)].forEach(ls => (ls || []).forEach(l => {
+    if (l.mid === id) { l.name = t.name || ''; l.unit = +t.price || 0; delete l.mid; }
+  })));
+  mcData().materials = mcData().materials.filter(x => x.id !== id);
+  saveMenuCosts();
+  renderMenuCost();
+}
+function mcMatOptionsHtml() {
+  const mats = mcMats();
+  const groups = MC_MAT_CATS.map(c => [c, mats.filter(t => (t.cat || '기타') === c)]).filter(([, a]) => a.length);
+  const rest = mats.filter(t => !MC_MAT_CATS.includes(t.cat || '기타'));
+  return `<option value="">+ 부자재에서 추가</option>` +
+    groups.map(([c, a]) => `<optgroup label="${c}">${a.map(t => `<option value="${t.id}">${mcEsc(t.name || '(이름 없음)')}${t.unit ? ' (' + mcEsc(t.unit) + ')' : ''}${!mcIsBlank(t.price) ? ' · ' + mcFmtUnit(t.price) + '원' : ''}</option>`).join('')}</optgroup>`).join('') +
+    (rest.length ? `<optgroup label="기타">${rest.map(t => `<option value="${t.id}">${mcEsc(t.name)}</option>`).join('')}</optgroup>` : '');
+}
+function mcRefreshMatSelects() { document.querySelectorAll('select.mc-mat-add').forEach(s => { s.innerHTML = mcMatOptionsHtml(); }); }
+function mcAddMatLine(id, k, mid) {
+  const m = mcFind(id); const t = mcMat(mid); if (!m || !t) return;
+  const lines = mcLinesOf(m, k); if (!lines) return;
+  lines.push({ mid, name: t.name || '', qty: mcIsBlank(t.defQty) ? 1 : +t.defQty, unit: +t.price || 0 });
+  mcRenderCard(id);
+  mcRecalc(id);
+  mcRefreshMatUsage();
+  saveMenuCosts();
+}
+function mcRefreshMatUsage() { mcMats().forEach(t => { const e = document.getElementById('mc-matuse-' + t.id); if (e) e.textContent = mcMatUsage(t.id); }); }
+function mcRecalcAll() { mcItems().forEach(m => mcRecalc(m.id)); }
+
+// ----- 메뉴 목록 표. 행을 클릭하면 바로 아래 행에 원가 편집 영역이 펼쳐짐 -----
+function renderMenuCostSummary() {
+  const el = document.getElementById('mcSummary');
+  const allItems = mcItems().slice().sort((a, b) =>
+    (mcCatIndex(a.cat) - mcCatIndex(b.cat)) || String(a.name || '').localeCompare(String(b.name || ''), 'ko'));
+  if (allItems.length === 0) {
+    el.innerHTML = `<div class="card" style="text-align:center;color:var(--text-light);padding:32px;">아직 등록된 메뉴가 없습니다.<br><span style="font-size:12px;">"+ 메뉴 추가"로 시작하세요. 재료비는 공통 원가에 한 번만 적고, 홀·테이크아웃·배달은 판매가와 포장비를 따로 적습니다.</span></div>`;
+    return;
+  }
+  // 카테고리 칩: 설정된 카테고리 순서 + 목록에 없는 카테고리(있으면 뒤에)
+  const menuCat = m => m.cat || '(미분류)';
+  const extra = [...new Set(allItems.map(menuCat).filter(c => !mcCats().includes(c)))];
+  const chipCats = [...mcCats(), ...extra].map(c => [c, allItems.filter(m => menuCat(m) === c).length]);
+  const items = mcMenuFilter ? allItems.filter(m => menuCat(m) === mcMenuFilter) : allItems;
+  const chips = mcChipsHtml(chipCats, mcMenuFilter, 'mcSetMenuFilter');
+  if (items.length === 0) {
+    el.innerHTML = chips + `<div class="card" style="text-align:center;color:var(--text-light);padding:24px;font-size:12px;">"${mcEsc(mcMenuFilter)}" 카테고리에 메뉴가 없습니다.</div>`;
+    return;
+  }
+  const groups = [];
+  items.forEach(m => {
+    const key = m.cat || '(미분류)';
+    let g = groups[groups.length - 1];
+    if (!g || g.cat !== key) { g = { cat: key, items: [] }; groups.push(g); }
+    g.items.push(m);
+  });
+  const cell = (m, k) => {
+    const c = mcCalcCh(m, k);
+    if (!c.on) return `<td style="text-align:right;color:var(--text-light);" id="mcs-cell-${m.id}-${k}">—</td>`;
+    return `<td style="text-align:right;" id="mcs-cell-${m.id}-${k}">
+      <div style="font-size:11px;color:var(--text-light);">판매가 <span id="mcs-price-${m.id}-${k}">${fmt(c.price)}</span></div>
+      <div><span id="mcs-net-${m.id}-${k}" class="${c.net >= 0 ? 'amount-income' : 'amount-expense'}">${fmtWon(c.net)}</span> <span id="mcs-pct-${m.id}-${k}" style="font-size:11px;color:var(--text-light);">(${c.pct.toFixed(0)}%)</span></div>
+    </td>`;
+  };
+  const cols = MC_CH.length + 1;
+  el.innerHTML = chips + `<div class="table-wrap" style="margin-bottom:16px;"><table>
+    <thead><tr><th>메뉴 <span style="font-weight:400;text-transform:none;">(클릭하면 원가 항목이 펼쳐집니다)</span></th>${MC_CH.map(([k, l]) => `<th style="text-align:right;">${l} · 1개 팔면 남는 돈</th>`).join('')}</tr></thead>
+    <tbody>${groups.map(g => `<tr class="mc-group"><td colspan="${cols}" style="background:var(--bg);font-weight:700;font-size:12px;color:var(--text-light);padding:8px 16px;">${mcEsc(g.cat)} <span style="font-weight:400;">(${g.items.length})</span></td></tr>` + g.items.map(m => `<tr class="mc-row" id="mc-row-${m.id}" onclick="mcToggle('${m.id}')">
+      <td style="padding-left:20px;"><span class="mc-chev" id="mc-chev-${m.id}">▸</span><span id="mcs-name-${m.id}">${mcEsc(m.name) || '(이름 없음)'}</span></td>${MC_CH.map(([k]) => cell(m, k)).join('')}
+    </tr>
+    <tr class="mc-detail" id="mc-detail-${m.id}" style="display:none;"><td colspan="${cols}" id="mc-detail-td-${m.id}"></td></tr>`).join('')).join('')}</tbody></table></div>`;
+  // 리렌더 후 펼쳐져 있던 메뉴 복원
+  [...mcOpen].forEach(id => { if (document.getElementById('mc-detail-' + id)) mcSetOpen(id, true); else mcOpen.delete(id); });
+}
+
+function mcSetOpen(id, open) {
+  const tr = document.getElementById('mc-detail-' + id); if (!tr) return;
+  if (open) {
+    mcOpen.add(id);
+    const td = document.getElementById('mc-detail-td-' + id);
+    const m = mcFind(id);
+    if (td && m && !document.getElementById('mc-card-' + id)) td.innerHTML = mcItemHtml(m);
+    tr.style.display = '';
+  } else {
+    mcOpen.delete(id);
+    tr.style.display = 'none';
+  }
+  const chev = document.getElementById('mc-chev-' + id); if (chev) chev.textContent = open ? '▾' : '▸';
+  const row = document.getElementById('mc-row-' + id); if (row) row.classList.toggle('open', open);
+}
+function mcToggle(id) { mcSetOpen(id, !mcOpen.has(id)); }
+
+// 원가 줄 표. compact=true: 채널 칸용 (머리글 없이 placeholder, 좁은 숫자 칸). 고정폭 레이아웃이라 숫자 칸이 잘리지 않음.
+// 부자재에 연결된 줄은 이름·단가가 읽기 전용(부자재 값), 수량만 입력.
+function mcLinesHtml(m, k, lines, ph, compact) {
+  const rows = (lines || []).map((l, i) => {
+    const mt = l.mid ? mcMat(l.mid) : null;
+    const nameCell = mt
+      ? `<td><span class="mc-linked" id="mc-lname-${m.id}-${k}-${i}" title="부자재 연동 · 단가는 부자재 목록에서 관리">${mcEsc(mt.name || '(이름 없음)')}${mt.unit ? `<i>/${mcEsc(mt.unit)}</i>` : ''}</span></td>`
+      : `<td><input type="text" value="${mcEsc(l.name)}" placeholder="${ph}" oninput="mcLine('${m.id}','${k}',${i},'name',this.value)"></td>`;
+    const unitCell = mt
+      ? `<td class="num mc-ro" id="mc-unit-${m.id}-${k}-${i}">${mcFmtUnit(mt.price)}</td>`
+      : `<td><input type="number" step="any" min="0" value="${l.unit ?? ''}" placeholder="단가" oninput="mcLine('${m.id}','${k}',${i},'unit',this.value)"></td>`;
+    return `
+    <tr>
+      ${nameCell}
+      <td><input type="number" step="any" min="0" value="${l.qty ?? ''}" placeholder="수량" oninput="mcLine('${m.id}','${k}',${i},'qty',this.value)"></td>
+      ${unitCell}
+      <td class="num" id="mc-amt-${m.id}-${k}-${i}">${fmt((+l.qty || 0) * mcLineUnit(l))}</td>
+      <td style="text-align:center;"><button class="mc-x" title="삭제" onclick="mcRemoveLine('${m.id}','${k}',${i})">×</button></td>
+    </tr>`;
+  }).join('');
+  const cols = compact
+    ? '<colgroup><col><col style="width:46px"><col style="width:58px"><col style="width:56px"><col style="width:20px"></colgroup>'
+    : '<colgroup><col><col style="width:80px"><col style="width:100px"><col style="width:100px"><col style="width:28px"></colgroup>';
+  const head = compact ? '' : '<thead><tr><th>항목</th><th class="num">수량</th><th class="num">단가</th><th class="num">금액</th><th></th></tr></thead>';
+  const matSel = mcMats().length ? `<select class="mc-mat-add" onchange="if(this.value){mcAddMatLine('${m.id}','${k}',this.value);this.value='';}">${mcMatOptionsHtml()}</select>` : '';
+  return `<table class="mc-lines${compact ? ' mc-lines-sm' : ''}">${cols}${head}<tbody>${rows}</tbody></table>
+    <div class="mc-line-actions">${matSel}<button class="mc-add" onclick="mcAddLine('${m.id}','${k}')">+ 직접 입력</button></div>`;
+}
+
+function mcChHtml(m, k, label) {
+  const g = mcData(); const ch = m.ch[k]; const c = mcCalcCh(m, k);
+  const feePh = '기본 ' + (k === 'delivery' ? g.deliveryFeeRate : g.cardFeeRate);
+  const fixPh = k === 'delivery' ? '기본 ' + fmt(g.deliveryFixed) : '0';
+  return `<div class="mc-ch ${c.on ? '' : 'off'}" id="mc-ch-${m.id}-${k}">
+    <div class="mc-ch-head"><label><input type="checkbox" ${c.on ? 'checked' : ''} onchange="mcChSet('${m.id}','${k}','on',this.checked)"> ${label}</label></div>
+    ${c.on ? `
+    <div class="mc-ch-fields">
+      <label>판매가 <input type="number" step="100" min="0" value="${ch.price ?? ''}" placeholder="0" oninput="mcChSet('${m.id}','${k}','price',this.value)"></label>
+      <label>수수료 % <input type="number" step="0.1" min="0" value="${ch.feePct ?? ''}" placeholder="${feePh}" oninput="mcChSet('${m.id}','${k}','feePct',this.value)"></label>
+      <label>고정 공제 <input type="number" step="100" min="0" value="${ch.fixed ?? ''}" placeholder="${fixPh}" oninput="mcChSet('${m.id}','${k}','fixed',this.value)"></label>
+    </div>
+    <div class="mc-sec">채널 원가 <span>(포장·용기 등)</span></div>
+    ${mcLinesHtml(m, k, ch.lines, '항목 (예: 종이컵)', true)}
+    <div class="mc-ch-calc">
+      <div><span>판매가</span><b id="mc-price-${m.id}-${k}">${fmt(c.price)}</b></div>
+      <div><span title="(판매가 − 원가) ÷ 11. 원가에 든 부가세는 돌려받으므로 뺀 값">− 부가세(순)</span><b id="mc-vat-${m.id}-${k}">${fmt(c.vat)}</b></div>
+      <div><span>− 수수료</span><b id="mc-fee-${m.id}-${k}">${fmt(c.fee)}</b></div>
+      <div><span>− 고정 공제</span><b id="mc-fixed-${m.id}-${k}">${fmt(c.fixed)}</b></div>
+      <div><span>− 원가 (공통 + 채널)</span><b id="mc-sum-${m.id}-${k}">${fmt(c.cost)}</b></div>
+      <div class="mc-ch-net"><span>1개 팔면 남는 돈</span><span><b class="mc-net ${c.net >= 0 ? 'pos' : 'neg'}" id="mc-net-${m.id}-${k}">${fmtWon(c.net)}</b> <i id="mc-pct-${m.id}-${k}">(${c.pct.toFixed(0)}%)</i></span></div>
+    </div>` : `<div class="mc-ch-off">사용 안 함</div>`}
+  </div>`;
+}
+
+function mcItemHtml(m) {
+  const catOpts = [...mcCats(), ...(m.cat && !mcCats().includes(m.cat) ? [m.cat] : [])];
+  return `<div class="mc-item" id="mc-card-${m.id}">
+    <div class="mc-head">
+      <select onchange="mcSet('${m.id}','cat',this.value)">${catOpts.map(k => `<option value="${mcEsc(k)}" ${m.cat === k ? 'selected' : ''}>${mcEsc(k)}</option>`).join('')}</select>
+      <input type="text" value="${mcEsc(m.name)}" placeholder="메뉴명" style="flex:1;min-width:120px;font-weight:700;" oninput="mcSet('${m.id}','name',this.value)">
+      <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="mcDuplicate('${m.id}')">복사</button>
+      <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;color:var(--expense);" onclick="mcRemove('${m.id}')">삭제</button>
+    </div>
+    <div class="mc-common">
+      <div class="mc-sec">공통 원가 <span>(재료비 등, 모든 채널에 들어감)</span><b>합계 <span id="mc-common-${m.id}">${fmt(mcSumLines(m.lines))}</span>원</b></div>
+      ${mcLinesHtml(m, 'c', m.lines, '예: 원두 g, 우유 ml, 시럽', false)}
+    </div>
+    <div class="mc-ch-grid">${MC_CH.map(([k, l]) => mcChHtml(m, k, l)).join('')}</div>
+  </div>`;
+}
+
+function mcRenderCard(id) {
+  const m = mcFind(id); const el = document.getElementById('mc-card-' + id);
+  if (!m || !el) { renderMenuCost(); return; }
+  el.outerHTML = mcItemHtml(m);
+}
+
+// 입력 중 리렌더 없이 계산값만 갱신 (포커스 유지). 부자재 단가·이름 변경도 여기서 반영.
+function mcRecalc(id) {
+  const m = mcFind(id); if (!m) return;
+  const set = (k, v) => { const e = document.getElementById(k); if (e) e.textContent = v; };
+  const lineUpd = (k, lines) => (lines || []).forEach((l, i) => {
+    set(`mc-amt-${id}-${k}-${i}`, fmt((+l.qty || 0) * mcLineUnit(l)));
+    const mt = l.mid ? mcMat(l.mid) : null;
+    if (mt) {
+      set(`mc-unit-${id}-${k}-${i}`, mcFmtUnit(mt.price));
+      const ne = document.getElementById(`mc-lname-${id}-${k}-${i}`);
+      if (ne) ne.innerHTML = mcEsc(mt.name || '(이름 없음)') + (mt.unit ? `<i>/${mcEsc(mt.unit)}</i>` : '');
+    }
+  });
+  lineUpd('c', m.lines);
+  set('mc-common-' + id, fmt(mcSumLines(m.lines)));
+  MC_CH.forEach(([k]) => {
+    const c = mcCalcCh(m, k);
+    lineUpd(k, m.ch[k].lines);
+    set(`mc-price-${id}-${k}`, fmt(c.price)); set(`mc-vat-${id}-${k}`, fmt(c.vat)); set(`mc-fee-${id}-${k}`, fmt(c.fee));
+    set(`mc-fixed-${id}-${k}`, fmt(c.fixed)); set(`mc-sum-${id}-${k}`, fmt(c.cost));
+    const n = document.getElementById(`mc-net-${id}-${k}`);
+    if (n) { n.textContent = fmtWon(c.net); n.className = 'mc-net ' + (c.net >= 0 ? 'pos' : 'neg'); }
+    set(`mc-pct-${id}-${k}`, `(${c.pct.toFixed(0)}%)`);
+    set(`mcs-price-${id}-${k}`, fmt(c.price));
+    const sn = document.getElementById(`mcs-net-${id}-${k}`);
+    if (sn) { sn.textContent = fmtWon(c.net); sn.className = c.net >= 0 ? 'amount-income' : 'amount-expense'; }
+    set(`mcs-pct-${id}-${k}`, `(${c.pct.toFixed(0)}%)`);
+  });
+}
+
+function mcSet(id, field, value) {
+  const m = mcFind(id); if (!m) return;
+  m[field] = value;
+  if (field === 'cat') renderMenuCostSummary();
+  else if (field === 'name') { const e = document.getElementById('mcs-name-' + id); if (e) e.textContent = value || '(이름 없음)'; }
+  saveMenuCosts();
+}
+
+function mcChSet(id, k, field, value) {
+  const m = mcFind(id); if (!m || !m.ch[k]) return;
+  if (field === 'on') {
+    m.ch[k].on = !!value;
+    saveMenuCosts();
+    mcRenderCard(id);
+    renderMenuCostSummary();
+    return;
+  }
+  m.ch[k][field] = value === '' ? '' : +value;
+  mcRecalc(id);
+  saveMenuCosts();
+}
+
+function mcLine(id, k, i, field, value) {
+  const m = mcFind(id); if (!m) return;
+  const lines = mcLinesOf(m, k); if (!lines || !lines[i]) return;
+  lines[i][field] = field === 'name' ? value : (value === '' ? '' : +value);
+  mcRecalc(id);
+  saveMenuCosts();
+}
+
+function mcSetGlobal(field, v) {
+  mcData()[field] = v === '' ? 0 : +v;
+  saveMenuCosts();
+  renderMenuCost();
+}
+
+function mcAdd() {
+  const id = mcNewId('mc');
+  const takeout = mcBlankCh(true); takeout.lines = [];
+  mcData().items.push({ id, bizId: currentBizId(), name: '', cat: mcCats().includes(mcMenuFilter) ? mcMenuFilter : mcCats()[0],
+    lines: [],
+    ch: { hall: mcBlankCh(true), takeout, delivery: mcBlankCh(false) } });
+  saveMenuCosts();
+  mcOpen.add(id);
+  renderMenuCost();
+  const row = document.getElementById('mc-row-' + id);
+  if (row) { row.scrollIntoView({ behavior: 'smooth', block: 'start' }); document.querySelector(`#mc-card-${id} .mc-head input[type=text]`)?.focus(); }
+}
+
+function mcDuplicate(id) {
+  const items = mcData().items;
+  const idx = items.findIndex(m => m.id === id); if (idx < 0) return;
+  const src = items[idx];
+  const copy = JSON.parse(JSON.stringify(src));
+  copy.id = mcNewId('mc');
+  copy.name = (src.name || '') + ' (복사)';
+  items.splice(idx + 1, 0, copy);
+  saveMenuCosts();
+  mcOpen.add(copy.id);
+  renderMenuCost();
+  document.getElementById('mc-row-' + copy.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function mcRemove(id) {
+  const m = mcFind(id); if (!m) return;
+  if (!confirm(`"${m.name || '(이름 없음)'}" 메뉴를 삭제할까요?`)) return;
+  mcOpen.delete(id);
+  mcData().items = mcData().items.filter(x => x.id !== id);
+  saveMenuCosts();
+  renderMenuCost();
+}
+
+function mcAddLine(id, k) {
+  const m = mcFind(id); if (!m) return;
+  const lines = mcLinesOf(m, k); if (!lines) return;
+  lines.push({ name: '', qty: 1, unit: '' });
+  mcRenderCard(id);
+  saveMenuCosts();
+  const scope = k === 'c' ? `#mc-card-${id} .mc-common` : `#mc-ch-${id}-${k}`;
+  const rows = document.querySelectorAll(`${scope} .mc-lines tbody tr`);
+  rows[rows.length - 1]?.querySelector('input[type=text]')?.focus();
+}
+
+function mcRemoveLine(id, k, i) {
+  const m = mcFind(id); if (!m) return;
+  const lines = mcLinesOf(m, k); if (!lines) return;
+  lines.splice(i, 1);
+  mcRenderCard(id);
+  mcRecalc(id);
+  mcRefreshMatUsage();
+  saveMenuCosts();
+}
+
+// BEP 분석 페이지 메뉴로 내보내기: 사용 중인 채널마다 한 줄, 원가 = 판매가 - 남는 돈
+async function sendMenuCostToBep() {
+  const entries = [];
+  mcItems().forEach(m => {
+    const chs = MC_CH.filter(([k]) => m.ch[k].on && (+m.ch[k].price || 0) > 0);
+    chs.forEach(([k, label]) => {
+      const c = mcCalcCh(m, k);
+      entries.push({ name: (m.name || '(이름 없음)') + (chs.length > 1 ? ` (${label})` : ''), price: c.price, cost: Math.round(c.price - c.net) });
+    });
+  });
+  if (entries.length === 0) { alert('판매가가 입력된 메뉴가 없습니다.'); return; }
+  const pid = currentPersonId(); if (!pid) return;
+  const prev = (DATA.bepSettings || {})[pid] || {};
+  const oldMenus = prev.menus || bepMenus || [];
+  const newMenus = entries.map(e => { const old = oldMenus.find(b => b.name === e.name); return { ...e, ratio: old ? (old.ratio || 0) : 0 }; });
+  const assigned = newMenus.reduce((s, x) => s + x.ratio, 0);
+  const blank = newMenus.filter(x => !x.ratio);
+  if (blank.length) { const each = Math.max(1, Math.round((100 - assigned) / blank.length)); blank.forEach(x => x.ratio = each); }
+  const settings = {
+    rent: prev.rent ?? 120, utilities: prev.utilities ?? 30, labor: prev.labor ?? 0,
+    otherFixed: prev.otherFixed ?? 50, depreciation: prev.depreciation ?? 0,
+    daysOpen: prev.daysOpen ?? 26, hours: prev.hours ?? 10, menus: newMenus
+  };
+  bepMenus = newMenus;
+  if (!DATA.bepSettings) DATA.bepSettings = {};
+  DATA.bepSettings[pid] = settings;
+  try {
+    await sb.from('app_settings').upsert({ key: 'bep_' + pid, value: settings }, { onConflict: 'key' });
+  } catch (e) { console.error('BEP sync error:', e); alert('저장 실패: ' + (e.message || e)); return; }
+  alert(`BEP 메뉴 ${newMenus.length}개 반영됐습니다. BEP 분석 페이지에서 매출 비중(%)을 조정하세요.`);
 }
 
 // ========== DASHBOARD ==========
