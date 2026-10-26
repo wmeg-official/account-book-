@@ -233,8 +233,11 @@ tbody tr.mc-detail:hover { background:transparent; }
 }
 .stmt { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; color: #000; }
 .stmt table { border-collapse: collapse; width: 100%; }
+/* 문서 안 표는 앱 전체의 tbody td 줄바꿈 금지를 풀어서 긴 업태·품명·조건이 칸 안에서 줄바꿈되게 함. 숫자 칸만 한 줄 유지 */
+.stmt td { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
+.stmt .stmt-items td:not(.left):not(.center) { white-space: nowrap; }
 .stmt .stmt-title { text-align: center; font-size: 22px; font-weight: 700; letter-spacing: 8px; padding: 16px 0; border-top: 3px solid #000; border-bottom: 3px solid #000; margin-bottom: 16px; }
-.stmt .stmt-header { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.stmt .stmt-header { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-bottom: 16px; }
 .stmt .stmt-party { border: 1px solid #333; }
 .stmt .stmt-party th { background: #f0f0f0; padding: 6px 10px; font-size: 12px; border: 1px solid #999; white-space: nowrap; width: 70px; text-align: center; }
 .stmt .stmt-party td { padding: 6px 10px; font-size: 13px; border: 1px solid #999; }
@@ -7374,7 +7377,7 @@ function previewPriceList() {
 
   const sectorVal = document.getElementById('stmtSector').value;
   const sectors = sectorVal === '__all__' || !sectorVal
-    ? (biz.sectors || []).map(s => s.category).join(', ')
+    ? [...new Set((biz.sectors || []).map(s => s.category))].join(', ')
     : (() => { const s = (biz.sectors || [])[parseInt(sectorVal)]; return s ? s.category + (s.item ? ', ' + s.item : '') : ''; })();
   const lang = document.getElementById('stmtLang').value;
   const isEn = lang === 'en';
@@ -7793,7 +7796,7 @@ function previewStatement() {
 
   const sectorVal = document.getElementById('stmtSector').value;
   const sectors = sectorVal === '__all__' || !sectorVal
-    ? (biz.sectors || []).map(s => s.category).join(', ')
+    ? [...new Set((biz.sectors || []).map(s => s.category))].join(', ')
     : (() => { const s = (biz.sectors || [])[parseInt(sectorVal)]; return s ? s.category + (s.item ? ', ' + s.item : '') : ''; })();
   const lang = document.getElementById('stmtLang').value;
   const isEn = lang === 'en';
@@ -8222,7 +8225,7 @@ function populateQuoteSector(keep) {
 
 function quoteSectorText(biz, val) {
   const list = biz.sectors || [];
-  if (val === '__all__' || !val) return list.map(s => s.category).join(', ');
+  if (val === '__all__' || !val) return [...new Set(list.map(s => s.category))].join(', ');   // 같은 업태가 여러 종목으로 등록돼 있어도 한 번만
   const s = list[parseInt(val, 10)];
   return s ? s.category + (s.item ? ', ' + s.item : '') : '';
 }
