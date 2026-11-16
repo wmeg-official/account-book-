@@ -6315,6 +6315,12 @@ function parseSSSheet(sheetName) {
   return data;
 }
 
+// 네이버 주문번호 앞 8자리는 주문(결제)일: 2026071983211021 → 2026-07-19
+function ssOrderNoDate(orderNo) {
+  const m = String(orderNo || '').match(/^(20\d{2})(\d{2})(\d{2})\d{8,}$/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+}
+
 function formatSSDate(dateStr) {
   // "2026.03.01" → "2026-03-01"
   if (!dateStr) return '';
@@ -6515,7 +6521,8 @@ async function confirmSmartStoreUpload() {
     DATA.proxyOrders.push({
       id: 'proxy_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       bizId,
-      orderDate: payDate,
+      orderDate: payDate || ssOrderNoDate(orderNo),
+      reportDate: formatSSDate(products[0]?.taxDate || '') || payDate,
       orderNo: orderNo,
       customer: buyer,
       customerAmount,
@@ -6776,7 +6783,9 @@ async function confirmSmartStoreFeeDetail() {
 
     DATA.proxyOrders.push({
       id: 'proxy_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-      bizId, orderDate: formatSSDate(o.payDate || o.taxDate), orderNo,
+      // 수수료상세 파일엔 결제일이 없어서 주문번호 앞 8자리(주문일)를 결제일로 씀. 매출 월은 정산기준일 기준
+      bizId, orderDate: formatSSDate(o.payDate) || ssOrderNoDate(orderNo) || formatSSDate(o.taxDate),
+      reportDate: formatSSDate(o.taxDate), orderNo,
       customer: o.buyer, customerAmount, items: proxyItems, shippingCost,
       platform: '스마트스토어', description: proxyItems.map(i => i.name).join(', '),
       settled: false, purchaseAmount: 0, extraCost: 0, commission: 0,
