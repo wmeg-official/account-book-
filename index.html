@@ -2237,7 +2237,7 @@ async function onLoginSuccess() {
   document.getElementById('userName').textContent = person.name;
 
   populateBizSelect();
-  autoCreateFixedCosts();
+  personBusinesses().forEach(b => autoCreateFixedCosts(b.id));
   showPage('dashboard');
   checkSupabaseStatus();
 }
@@ -8567,16 +8567,35 @@ function quoteToStatement(id) {
 }
 
 // ========== 고정비 자동 등록 ==========
-function autoCreateFixedCosts() {
-  const bizId = currentBizId();
+// 앱을 연 달뿐 아니라, 고정비가 통째로 빠진 지난달도 채운다.
+// 지난달은 고정비가 한 건도 없을 때만 채운다. 금액을 고쳐 고정비 해제한 건이 다시 생기지 않게 하기 위해서다.
+function autoCreateFixedCosts(bizIdArg) {
+  const bizId = bizIdArg || currentBizId();
   if (!bizId) return;
   const now = new Date();
-  const thisYear = now.getFullYear();
-  const thisMonth = now.getMonth();
+  const curMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const isFixedExp = t => t.bizId === bizId && t.isFixed && t.type === 'expense';
+  const firstFixed = DATA.transactions.filter(isFixedExp).map(t => t.date).sort()[0];
+  if (!firstFixed) return;
+
+  let y = +firstFixed.slice(0, 4), m = +firstFixed.slice(5, 7);
+  let created = 0;
+  while (true) {
+    m++; if (m > 12) { m = 1; y++; }
+    const monthStr = `${y}-${String(m).padStart(2, '0')}`;
+    if (monthStr > curMonthStr) break;
+    const isCurrent = monthStr === curMonthStr;
+    if (!isCurrent && DATA.transactions.some(t => isFixedExp(t) && t.date.startsWith(monthStr))) continue;
+    created += createFixedCostsForMonth(bizId, y, m - 1, isCurrent);
+  }
+  if (created > 0) console.log(`고정비 ${created}건 자동 등록 완료`);
+}
+
+function createFixedCostsForMonth(bizId, thisYear, thisMonth, perKeyCheck) {
   const monthStr = `${thisYear}-${String(thisMonth + 1).padStart(2, '0')}`;
   const bizTxs = DATA.transactions.filter(t => t.bizId === bizId);
-  const fixedTxs = bizTxs.filter(t => t.isFixed && t.type === 'expense');
-  if (fixedTxs.length === 0) return;
+  const fixedTxs = bizTxs.filter(t => t.isFixed && t.type === 'expense' && t.date < `${monthStr}-01`);
+  if (fixedTxs.length === 0) return 0;
 
   const latestByKey = {};
   fixedTxs.forEach(t => {
@@ -8586,10 +8605,11 @@ function autoCreateFixedCosts() {
 
   let created = 0;
   Object.values(latestByKey).forEach(src => {
-    if (src.date.startsWith(monthStr)) return;
-    const exists = bizTxs.some(t => t.date.startsWith(monthStr)
-      && t.category === src.category && t.partner === src.partner && t.amount === src.amount);
-    if (exists) return;
+    if (perKeyCheck) {
+      const exists = bizTxs.some(t => t.date.startsWith(monthStr)
+        && t.category === src.category && t.partner === src.partner && t.amount === src.amount);
+      if (exists) return;
+    }
 
     const srcDay = new Date(src.date).getDate();
     const lastDay = new Date(thisYear, thisMonth + 1, 0).getDate();
@@ -8608,7 +8628,7 @@ function autoCreateFixedCosts() {
     autoSyncTx(tx);
     created++;
   });
-  if (created > 0) console.log(`고정비 ${created}건 자동 등록 완료`);
+  return created;
 }
 
 function removeAutoCreatedFixedTxs(srcTx) {
